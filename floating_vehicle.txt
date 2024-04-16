@@ -1,0 +1,184 @@
+--@name Floating Vehicle
+--@author Lil'Tugboat
+--@include libs/criticalpd.txt
+--@shared
+    
+
+if SERVER then
+    
+    local targetHeight = 50
+    local translationGain = 500 -- Set to desired stiffness
+    local rotationGain = 500 -- Set to desired rotational stiffness
+    
+    local sensorDensity = 50
+    local sensorRadius = 70
+    
+    
+    
+    local rotateI = 0
+    local holoProxy
+    local EntityCriticalPD = require("libs/criticalpd.txt")
+    
+    
+
+    
+    local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/props_interiors/furniture_couch02a.mdl", false)
+    local holoChair = hologram.create(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/props_interiors/furniture_couch02a.mdl")
+    
+    
+    
+    local physObj = chair:getPhysicsObject()
+
+    
+    local pdController = EntityCriticalPD:new(physObj, translationGain, rotationGain)
+    
+    local spawnLocation = chair:getPos()
+    local lastPosition = spawnLocation
+    local x = 9
+    local y = 17
+    local z = -24
+    local vectors = {
+        Vector( x,  y, z),
+        Vector(-x,  y, z),
+        Vector( x, -y, z),
+        Vector(-x, -y, z),
+    }
+    
+    local hitHolos = {}
+    for i = 1,4,1 do 
+        local holo = hologram.create( chair:localToWorld(vectors[i]), Angle(), "models/sprops/misc/alphanum/alphanum_arrow_b.mdl", Vector(0.5, 0.5, 0.5))
+        holo:setParent(chair)
+        
+        local holo2 = hologram.create( Vector(), Angle(), "models/sprops/geometry/sphere_9.mdl", Vector(1, 1, 1))
+        table.insert(hitHolos, holo2)
+        
+    end
+    
+    function findBestFitPlane(points)
+        local sumX, sumY, sumZ = 0, 0, 0
+        local n = #points
+    
+        -- Calculate the centroid
+        for _, p in ipairs(points) do
+            sumX = sumX + p.x
+            sumY = sumY + p.y
+            sumZ = sumZ + p.z
+        end
+        local centroid = Vector(sumX / n, sumY / n, sumZ / n)
+    
+        -- Calculate elements of the covariance matrix
+        local xx, xy, xz, yy, yz, zz = 0, 0, 0, 0, 0, 0
+        for _, p in ipairs(points) do
+            local dx = p.x - centroid.x
+            local dy = p.y - centroid.y
+            local dz = p.z - centroid.z
+            xx = xx + dx * dx
+            xy = xy + dx * dy
+            xz = xz + dx * dz
+            yy = yy + dy * dy
+            yz = yz + dy * dz
+            zz = zz + dz * dz
+        end
+    
+        -- Create a matrix and set it based on the covariance matrix components
+        local matrix = Matrix()
+        matrix:setRight(Vector(xy, yy, yz)) -- Setting based on cross terms for simplification
+        matrix:setUp(Vector(xz, yz, zz))    -- Assume largest variance in cross terms
+        matrix:setForward(Vector(xx, xy, xz)) -- Use the components with potentially highest variance
+    
+        -- Return the matrix, the centroid, and the calculated normal
+        return matrix, centroid, matrix:getForward()
+    end
+    
+    local function placeSensorHolograms()
+        local goldenAngle = 2.399963229728653
+        local offset = 2 / sensorDensity
+        
+        holoProxy = holograms.create(
+                chair:obbCenterW(),
+                chair:getAngles(),
+                "models/sprops/misc/axis_plane.mdl",
+                Vector(1, 1, 1)
+            )
+            holoProxy:setParent(chair)
+        
+        for index = 1, sensorDensity, 1 do
+            local y = ((index - 1) * offset - 1) + offset / 2
+            local r = math.sqrt(1 - y * y)
+            local phi = ((index - 1) % sensorDensity) * goldenAngle
+            
+            local localVector = Vector(
+                math.cos(phi) * r,
+                math.sin(phi) * r,
+                y
+            )
+            
+            localVector:mul(sensorRadius)
+            
+            local holo = holograms.create(
+                chair:localToWorld(localVector),
+                chair:localToWorldAngles(localVector:getAngle()),
+                "models/sprops/misc/cube_from_x.mdl",
+                Vector(0.01, 1, 1)
+            )
+            --holo:setColor(Color(360 * index / sensorDensity):hsvToRGB())
+            holo:setParent(holoProxy)
+    
+            --coroutine.wait(delayTime)
+    
+        end
+    end
+
+    local hits = {}
+    hook.add("think", "laser!", function ()
+        hits = {}
+        local distSum = 0
+        for index, holo in ipairs(hitHolos) do
+            local t = trace.line(
+                chair:localToWorld(vectors[index]),
+                chair:localToWorld(vectors[index] - Vector(0, 0, 2 * targetHeight))
+            )
+            localHit = chair:worldToLocal(t.HitPos)
+            table.insert(hits, localHit)
+            holo:setPos(t.HitPos)
+            
+            distSum = distSum + (hits[index] - vectors[index]):getLength()
+            
+        end
+        local distance = distSum / #hits
+        
+        
+        local planeMatrix, planeCentroid, planeNormal = findBestFitPlane(hits)
+        --print("Plane Matrix: ", planeMatrix)
+        --print("Plane Centroid: ", planeCentroid)
+        --print("Plane Normal: ", planeNormal)
+        
+        holoChair:setAngles(planeNormal:getAngle())
+        
+        
+        posTarget = chair:localToWorld(Vector(0,0, targetHeight -distance  ))
+        pdController:setTarget(posTarget,planeNormal:getAngle() )
+        pdController:simulate()
+
+        
+    end)
+    
+    local co = coroutine.create(placeSensorHolograms)
+    coroutine.resume(co)
+    hook.add("think", "SensorArray", function ()
+        if coroutine.status(co) ~= "dead" then
+                coroutine.resume(co)
+        else
+            holoProxy:setAngles(chair:localToWorldAngles(Angle(0, rotateI, 0)))
+            rotateI = rotateI + 1
+        end
+    end)
+    
+else
+
+
+
+end
+
+
+

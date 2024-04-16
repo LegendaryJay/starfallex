@@ -1,0 +1,44 @@
+--@name Get Model
+--@author Lil'Tugboat
+--@server
+
+local me = owner()
+local target = me
+
+-- get owner look object
+-- make holosimilar to object
+
+
+
+--[[
+hook.add("KeyPress", "KeyPress", function(ply, key)
+    if ply ~= me then return end 
+    if key == IN_KEY.RELOAD then
+        print("reload")
+    end
+end)
+]]
+
+
+hook.add("KeyRelease", "KeyRelease", function(ply, key)
+    if ply ~= me then return end 
+    if key == IN_KEY.RELOAD then
+        local tempTarget = me:getEyeTrace().Entity
+        if isValid(tempTarget) then
+            target = tempTarget
+            print(target:getModel())
+        end
+    end
+end)
+
+--[[
+-- Attach a callback responsible for the movement of the hologram to the `Tick` event
+hook.add("Tick", "Update", function()
+    -- Add acceleration from user input to the velocity
+    velocity = velocity + acceleration
+    -- Create a new vector with Y axis based on the `velocity` and apply that to the hologram
+    holo:setVel(Vector(0, velocity, 0))
+    -- Decrease the velocity, otherwise hologram will never stop
+    velocity = velocity * 0.9
+end)
+]]

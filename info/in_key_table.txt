@@ -1,0 +1,31 @@
+--@name IN_KEY Table
+--@author Lil'Tugboat
+--@shared
+
+printTable(IN_KEY)
+
+RUN    =    4096
+LEFT    =    128
+WALK    =    262144
+FORWARD    =    8
+DUCK    =    4
+SCORE    =    65536
+JUMP    =    2
+USE    =    32
+BACK    =    16
+WEAPON1    =    1048576
+MOVERIGHT    =    1024
+RELOAD    =    8192
+CANCEL    =    64
+ATTACK2    =    2048
+ALT2    =    32768
+ALT1    =    16384
+RIGHT    =    256
+MOVELEFT    =    512
+WEAPON2    =    2097152
+ZOOM    =    524288
+ATTACK    =    1
+GRENADE1    =    8388608
+SPEED    =    131072
+GRENADE2    =    16777216
+BULLRUSH    =    4194304

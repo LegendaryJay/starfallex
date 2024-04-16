@@ -1,0 +1,81 @@
+--@name Spider
+--@description Creates a spider-like entity with legs and a body
+--@server
+
+local LegCount = 4
+local SegmentCount = 1
+
+
+local legRadius = 200
+local segmentDist = 50
+
+local legs = {}
+local body
+local spawnInProgress = false
+
+local function createSegment()
+    --local seg = holograms.create(Vector(0), Angle(0), "models/props_combine/headcrabcannister01a.mdl")
+    local seg = holograms.create(Vector(0), Angle(0), "models/Combine_Helicopter/helicopter_bomb01.mdl")
+    return seg
+end
+
+local function createBody()
+    body =    prop.create(Vector(0), Angle(0, 0, 90), "models/props_wasteland/wheel03b.mdl", 1)
+    return body
+end
+
+local function createLeg()
+    local leg = {}
+    for i = 1, SegmentCount do
+        leg[i] = createSegment()
+    end
+    return leg
+end
+
+local function createSpider()
+    body = createBody()
+
+    for i = 1, LegCount do
+        legs[i] = createLeg()
+    end
+end
+
+
+local function updateLeg(normal)
+    for j, segment in ipairs(leg) do
+        
+        local localLegPos = Vector(math.cos(legAngle) * legRadius, 0,  math.sin(legAngle) * legRadius)
+        
+        local segmentPos = body:localToWorld(localLegPos)
+        segment:setPos(segmentPos)
+    end
+    
+end
+
+
+local function updateSegment()
+    
+end
+
+local function updateSpider()
+    body:setPos(chip():localToWorld(Vector(0, 0, 100)))
+    local legSeparation = 360 / LegCount
+
+    for i, leg in ipairs(legs) do
+        updateLeg()
+        local legAngle = math.rad(legSeparation * i - 180)
+        local segOffset = legRadius + (i - 1) * segmentDist -- Convert degrees to radians
+        
+        
+        
+    end
+end
+
+
+
+
+createSpider()
+
+hook.add("tick", "runtime", function()
+    updateSpider()
+end)

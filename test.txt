@@ -1,0 +1,60 @@
+--@name Inverse Kinematics Chain
+--@author Lil'Tugboat
+--@server
+
+local numSegments = 200
+local segmentLength = 30
+local segments = {}
+local target = chip():getPos() + Vector(0, 0, 50)  -- Default target slightly above the owner
+
+-- Initialize segments
+for i = 1, numSegments do
+    segments[i] = holograms.create(Vector(0, 0, 0), Angle(0, 0, 0), "models/sprops/trans/air/prop_3b_s.mdl")
+    segments[i]:setScale(Vector(20, 10, 10))  -- Scale down the model for better visualization
+    segments[i]:setAngles(Angle(0, 0, 90))  -- Adjust orientation if needed
+end
+
+-- Function to calculate the angle towards another point
+local function calculateAngle(from, to)
+    local diff = to - from
+    local angle = diff:getAngle()
+    return angle
+end
+
+-- Function to update positions and angles
+local function updateIK(targetPos)
+    local targetX, targetY, targetZ = targetPos.x, targetPos.y, targetPos.z
+
+    for i = 1, numSegments - 1 do
+        
+        local seg = segments[i]
+        local pos = seg:getPos()
+        local dx = targetX - pos.x
+        local dy = targetY - pos.y
+        local dz = targetZ - pos.z
+        local dist = math.sqrt(dx * dx + dy * dy + dz * dz)
+
+        -- Normalize and apply segment length
+        if dist > segmentLength then
+            dx, dy, dz = (dx / dist) * segmentLength, (dy / dist) * segmentLength, (dz / dist) * segmentLength
+        end
+
+        local newPos = Vector(targetX - dx, targetY - dy, targetZ - dz)
+        seg:setPos(newPos)
+        
+        -- Update angles to point towards the target
+        if i < numSegments then
+            local nextPos = segments[i + 1]:getPos()
+            seg:setAngles(calculateAngle(newPos, nextPos))
+        else
+            seg:setAngles(calculateAngle(newPos, targetPos))
+        end
+
+        targetX, targetY, targetZ = newPos.x, newPos.y, newPos.z
+    end
+end
+
+-- Periodic update
+timer.create("UpdateIK", 0.05, 0, function()
+    updateIK(chip():getPos() + Vector(0, 0, 0))
+end)

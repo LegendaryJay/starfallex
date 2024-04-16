@@ -1,0 +1,522 @@
+--@name Holo Trail
+--@author Lil'Tugboat
+--@include libs/command_parser.txt
+--@shared
+
+local me = owner()
+
+--[[
+-- Handling commands
+local function handleCommand(player, message)
+    local args = {}
+    for word in message:gmatch("%S+") do
+        table.insert(args, word)
+    end
+    local command = table.remove(args, 1):sub(2):lower() -- Remove prefix and convert to lower case
+
+    if commands[command] then
+        commands[command](args)
+    else
+        print("No valid command prefix found or command is not recognized.")
+    end
+end
+]]
+
+
+
+
+if SERVER then    
+    require("libs/command_parser.txt")
+    
+    local holoCount = 100
+    local delay = 1
+    local startAlpha = 255
+    local endAlpha = 255
+    local startScale = 1
+    local endScale = 0
+    local rainbowEffect = false
+    local mat = ""
+    
+    
+    local offsetColor = 0
+    local target = me
+    
+    
+    local holos = {}
+    local history = {}
+    
+    local holoUpdateIndex = 1
+    
+    //async checks
+    local function checkQ(n)
+        return quotaAverage() < quotaMax()*n
+    end
+    
+    local function yieldCheck()
+        if not checkQ(0.95) then
+            coroutine.yield()
+        end
+    end
+    
+    //spawn Holos
+    local function spawnHolos()
+        coroutine.yield()
+    
+        while #holos > holoCount do
+            local holo = table.remove(holos)
+            holo:remove()  
+            yieldCheck()  
+        end
+    
+        while #holos < holoCount do
+            local holo = holograms.create(target:getPos(), target:getAngles(), target:getModel(), Vector(1, 1, 1))
+            table.insert(holos, holo)
+            yieldCheck() 
+        end
+        return true
+    end
+    
+    local function manageHoloCount()
+        if holoCount > hologram.hologramsLeft() then holoCount = hologram.hologramsLeft() end
+        if #holos == holoCount then return end
+        
+        print("Adjusting number of holograms")
+        if not spawnHolosCoroutine or coroutine.status(spawnHolosCoroutine) == "dead" then
+            spawnHolosCoroutine = coroutine.create(spawnHolos)
+        end
+        
+        hook.add("think", "manageHoloCountHook", function ()
+            if coroutine.status(spawnHolosCoroutine) ~= "dead" then
+                if checkQ(0.8) then
+                    coroutine.resume(spawnHolosCoroutine)
+                end
+            else
+                print("Hologram number adjusted")
+                hook.remove("think", "manageHoloCountHook")
+            end
+        end)
+    end
+    
+    manageHoloCount()
+    
+    //update Holos
+    local function takeSnapshot()
+        local snapshot
+        if not isValid(target) then
+            target = chip()
+        end
+        
+        local color
+        if rainbowEffect then
+            offsetColor = offsetColor + 1
+            offsetColor = offsetColor %360
+            color = Color(offsetColor, 1, 1):hsvToRGB()
+        else 
+            color = target:getColor()
+        end
+        
+        local snapshot = {
+            color = color, 
+            mat = target:getMaterial(),
+            pos = target:obbCenterW(),
+            ang = target:getAngles(),
+            model = target:getModel(),
+            centerOffset = target:obbCenter()
+        }
+        table.insert(history, snapshot)
+        while #history > ((holoCount + 1) * delay) do
+            table.remove(history, 1) 
+        end
+        return snapshot
+    end
+    
+
+    local function createUpdateHolosCoroutine()
+        return coroutine.create(function()
+            while true do
+                for index, holo in ipairs(holos) do
+                    local indexPercent = index/#holos
+                    
+                    effectiveIndex = #history - index * delay
+                    
+                    if effectiveIndex < 1 then break end
+                    
+                    local snapshot = history[effectiveIndex]
+                    
+                    color = snapshot.color
+                    color:setA(math.lerp(indexPercent, startAlpha, endAlpha))
+                    
+                    local scale = math.lerp(indexPercent, startScale, endScale)
+                    
+                    local material = ""
+                    if #mat > 0 then
+                        material = mat
+                    else 
+                        material = snapshot.mat
+                    end
+                    
+                    holo:setPos(localToWorld(-snapshot.centerOffset * scale, Angle(), snapshot.pos, snapshot.ang) )
+                    holo:setAngles(snapshot.ang)
+                    holo:setModel(snapshot.model)
+                    holo:setMaterial(material)
+                    holo:setColor(color)
+                    holo:setScale(Vector(scale, scale,scale))
+                    
+                    yieldCheck()
+                end
+                coroutine.yield()  -- Yield at the end of the update loop
+            end
+        end)
+    end
+    
+    
+    local updateHolosCoroutine = createUpdateHolosCoroutine()
+    hook.add("think", "updateHolos", function()
+        takeSnapshot()
+        if coroutine.status(updateHolosCoroutine) ~= "dead" then
+            if checkQ(0.8) then
+                coroutine.resume(updateHolosCoroutine)
+            end
+        else
+            updateHolosCoroutine = createUpdateHolosCoroutine()  -- Restart the coroutine if it's dead
+            print("Restarted updateHolosCoroutine")
+        end
+    end)
+    
+    //Keys
+    hook.add("KeyRelease", "KeyRelease", function(ply, key)
+        if ply ~= me then return end
+        if key == IN_KEY.RELOAD then
+            local tempTarget = me:getEyeTrace().Entity
+            if isValid(tempTarget) then
+                target = tempTarget
+                print(target:getModel())
+            end
+        end
+    
+    end)
+    
+    //chat commands
+    
+        
+    commands = {
+        alpha = function(args)
+            if #args == 0 then print("Alpha: " .. startAlpha .. ", " .. endAlpha) return true end
+            if #args > 2 then return false end
+            local tempStartAlpha = tonumber(args[1])
+            local tempEndAlpha = tonumber(args[2])
+            
+            if !tempStartAlpha then return end
+            
+            if #args == 2 then 
+                if not tempEndAlpha then
+                    return false
+                end
+                
+                endAlpha = tempEndAlpha
+            else
+                endAlpha = tempStartAlpha
+            end
+    
+            startAlpha = tempStartAlpha
+            
+            print("Alpha: " .. startAlpha .. ", " .. endAlpha)
+            return true
+        end,
+    
+        length = function(args)
+            if #args == 0 then print("Holos:", holoCount) return true end
+            if #args > 1 then return end
+    
+            local tempNumber = tonumber(args[1])
+            if tempNumber then
+                holoCount = tempNumber
+            end
+            manageHoloCount()
+            print("Holos:", holoCount)
+            return true
+        end,
+    
+    
+        scale = function(args)
+            if #args == 0 then print("Scale: " .. startScale .. ", " .. endScale) return true end
+            if #args > 2 then return false end
+            local tempStartScale = tonumber(args[1])
+            local tempEndScale = tonumber(args[2])
+            
+            if !tempStartScale then return end
+            
+            if #args == 2 then 
+                if not tempEndScale then
+                    return false
+                end
+                
+                endScale = tempEndScale
+            else
+                endScale = tempStartScale
+            end
+    
+            startScale = tempStartScale
+            
+            print("Scale: " .. startScale .. ", " .. endScale)
+            return true
+        end,
+    
+        delay = function(args)
+            if #args == 0 then print("Delay: " .. delay) return true end
+            if #args != 1 then return false end
+            delay = tonumber(args[1])
+            print("Delay:", delay)
+        end,
+    
+        colors = function(args)
+            rainbowEffect = not rainbowEffect
+            print("Rainbow", rainbowEffect and "enabled" or "disabled")
+        end,
+
+        mat = function(args)
+            if #args == 0 then print("Delay: " .. delay) return true end
+            local matType = args[1] or ""
+            local materials = {
+                wire = "models/wireframe",
+                white = "models/debug/debugwhite",
+                light = "lights/white",
+                clear = ""
+            }
+            mat = materials[matType] or args[2] or ""
+            print("Material:", mat)
+        end
+        --[[
+        help = function(args)
+            local page = args[1] or "1"
+            -- Assuming helpMenu is a function that shows help pages
+            if page == "1" or page == "2" then
+                helpMenu(tonumber(page))
+            else
+                print("Page does not exist")
+            end
+        end,
+    
+        prop = function(args)
+            -- Sample function, assuming properties can be set on 'target'
+            local propType = args[1]
+            local value = args[2]
+            if propType == "alpha" then
+                target:setAlpha(tonumber(value))
+            elseif propType == "mat" then
+                local materials = {
+                    wire = "models/wireframe",
+                    white = "models/debug/debugwhite",
+                    light = "lights/white",
+                    clear = ""
+                }
+                target:setMaterial(materials[value] or value)
+            elseif propType == "colors" then
+                -- Assuming toggle for rainbow on a prop
+                RainbowProp = not RainbowProp
+            end
+        end,
+    
+        info = function(args)
+            -- Assuming info is a function that prints some information
+            info()
+        end
+    ]]
+    }
+
+    
+    
+    
+    net.receive("command", function (len, ply)
+        if ply != me then return end
+
+        local commandString = net.readString()
+        local command, args = parseCommand(commandString)
+        
+        
+        if command and commands[command] then
+           
+            commands[command](args)
+        else
+            print("Invalid command received: ", command)
+        end
+    end)
+    
+
+else 
+    hook.add("PlayerChat", "chatCommands", function (ply, message, team, dead)
+        if ply ~= me then return end
+        
+        local command = string.match(message, "^%!(%w+)")        
+         
+        if command then
+            net.start("command")
+                net.writeString(message)
+            net.send()
+        end
+        return true
+    end)
+end    
+    
+--[[
+    
+
+
+local function void helpMenu(Page:number){
+    local Title = Color(104, 40, 125)
+    local Msg = Color(255)
+    local Cmd = Color(250, 10, 0)
+    local Args = Color(255, 150, 0)
+    
+    if (!Page | Page == 1){
+        print()
+        print(Title,"     HowTo:")
+        print(Args,"Aim ", Msg, "at a prop and press ", Args, "R")
+        print(Title,"     Commands:")
+        print(Cmd, "!alpha ", Args, "[0 - 255] {0 - 255} ", Msg, "- Changes the tail transparency front to back")
+        print(Cmd, "!length ", Args, "[0 - " + holoMaxAmount() + "] ", Msg, "- Changes the tail transparency front to back")
+        print(Cmd, "!scale ", Args, "[0 - 50] {0 - 50}", Msg, "- Changes the tail scale front to back")
+        print(Cmd, "!delay ", Args, "[1 - 100]", Msg, "- Changes the distance between the tail peices")
+        print(Cmd, "!mat ", Args, " [light, wire, white, clear, \"[custom path]\"] ", Msg, "- Overrides the tail material")
+        print(Cmd, "!colors ", Msg, "- Toggles rainbow mode")
+        print(Cmd, "!help ", Args, " [1 - 2] ", Msg, "- Displays this text.")
+        
+    } elseif (Page == 2){
+        print(Cmd, "!info", Msg, "- Displays current settings")
+        print(Cmd, "!prop alpha", Args, "[0 - 255] ", Msg, "- Changes the prop transparency")
+        print(Cmd, "!prop mat", Args, " [light, wire, white, clear, \"[custom path]\"] ", Msg, "- Changes the prop material")
+        print(Cmd, "!prop colors",  Msg, "- Toggles prop rainbow mode")
+    }
+        
+}
+
+
+function void info(){
+    local Title = Color(104, 40, 125)
+    local Msg = Color(255)
+    local Cmd = Color(250, 10, 0)
+    local Args = Color(255, 150, 0)
+    
+    print()
+    print(Title, "     Settings:")
+    print(Args,"Target: ", Msg, Target:toString())
+    print(Args,"Alpha: ", Msg, toString(AlphaRange))
+    print(Args,"Length: ", Msg, holoAmount() + " / " + HoloNumber)
+    print(Args,"Scale: ", Msg, toString(ScaleRange))
+    print(Args,"Delay: ", Msg, toString(Delay))
+    print(Args,"Colors: ", Msg, toString(Rainbow))
+    print(Args,"Ops: ", Msg, ops() )
+}
+
+
+
+
+
+
+        Chat = LS:sub(2):explode(" ")
+        Command = Chat:string(1)
+        if (Command == "alpha"){
+            hideChat(1)
+            AlphaRange = vec2(Chat:string(2):toNumber(),Chat:string(3):toNumber())
+            print("Alpha: " + toString(AlphaRange))
+        }
+        elseif (Command == "length"){
+            hideChat(1)
+            OldNumber=HoloNumber
+            HoloNumber=Chat:string(2):toNumber()
+            if(holoMaxAmount() < HoloNumber){
+                HoloNumber = holoMaxAmount()
+            }
+            if (OldNumber > HoloNumber){
+                for (TempI = 1 + HoloNumber, OldNumber){
+                    holoDelete(TempI)
+                }
+            } else {
+                SpawnHolos = 1
+            }       
+            print("Holos: " + HoloNumber)
+        }
+        elseif (Command == "scale"){
+            hideChat(1)
+            ScaleRange=vec2(Chat:string(2):toNumber(),Chat:string(3):toNumber())
+            print("Scale: " + toString(ScaleRange))
+        }
+        elseif (Command == "delay"){
+            hideChat(1)
+            Delay=Chat:string(2):toNumber()
+            print("Delay: " + Delay)
+        }
+        elseif (Command == "colors"){
+            hideChat(1)
+            Rainbow = !Rainbow
+            print("Rainbow")
+        }
+        elseif (Command == "mat"){
+            Command2 = Chat:string(2)
+            if (Command2 == "wire"){
+                MatOverride = "models/wireframe"
+                print("Wireframe Material")
+            } elseif (Command2 == "white"){
+                MatOverride = "models/debug/debugwhite"
+                print("White Material")
+            } elseif (Command2 == "light"){
+                MatOverride = "lights/white"
+                print("Light Material")
+            } elseif (Command2 == "clear" | Command2 == ""){
+                MatOverride = ""
+                print("Default Material")
+            } else {
+                MatOverride = LS:explode("\"")[2, string]:trim()
+            }
+            print("\"" + MatOverride + "\"")
+            hideChat(1)
+            
+        }
+        elseif (Command == "help"){
+            Command2 = Chat:string(2)
+            if (Command2 == "" | Command2 == "1"){
+                helpMenu(1)
+            } elseif (Command2 == "2"){
+                helpMenu(2)
+            } else {
+                hint("Page does not exist", 2)
+            }
+            hideChat(1)       
+        }
+        elseif (Command == "prop"){
+            Command2 = Chat:string(2)
+            Command3 = Chat:string(3)
+            if (Command2 == "alpha"){
+                Target:setAlpha(Chat:string(3):toNumber())
+                print("Target Alpha: " + Target:getAlpha())
+            } elseif ((Command2 == "mat")){
+                if (Command3 == "wire"){
+                    Target:setMaterial("models/wireframe")
+                } elseif (Command3 == "white"){
+                    Target:setMaterial("models/debug/debugwhite")
+                    print("White Material")
+                } elseif (Command3 == "light"){
+                    Target:setMaterial("lights/white")
+                    print("Light Material")
+                } elseif (Command3 == "clear" | Command2 == ""){
+                    Target:setMaterial("")
+                    print("Default Material")
+                } else {
+                    Target:setMaterial(LS:explode("\"")[2, string]:trim())
+                }
+                print("Target Material: " + Target:getMaterial())
+            } elseif (Command2 == "colors"){
+                RainbowProp = !RainbowProp
+                hint("Rainbow Prop",2)
+            }
+            hideChat(1)
+        }
+        elseif (Command == "info"){
+            hideChat(1)
+            info()
+        }
+
+    
+    
+    
+]]

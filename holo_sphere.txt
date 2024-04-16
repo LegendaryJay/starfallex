@@ -1,0 +1,62 @@
+--@name holo sphere
+--@author Lil'Tugboat
+--@server
+
+local holoCount = 50
+local radial = 300
+local delayTime = 0.1 
+
+local Parent = chip()
+local rotateI = 0
+
+local holoProxy
+
+local function placeHolograms()
+    local goldenAngle = 2.399963229728653
+    local offset = 2 / holoCount
+    
+    holoProxy = holograms.create(
+            Parent:obbCenterW(),
+            Parent:getAngles(),
+            "models/sprops/misc/axis_plane.mdl",
+            Vector(1, 1, 1)
+        )
+        holoProxy:setParent(Parent)
+    
+    for index = 1, holoCount, 1 do
+        local y = ((index - 1) * offset - 1) + offset / 2
+        local r = math.sqrt(1 - y * y)
+        local phi = ((index - 1) % holoCount) * goldenAngle
+        
+        local localVector = Vector(
+            math.cos(phi) * r,
+            math.sin(phi) * r,
+            y
+        )
+        
+        localVector:mul(radial)
+        
+        local holo = holograms.create(
+            Parent:localToWorld(localVector),
+            Parent:localToWorldAngles(localVector:getAngle()),
+            "models/sprops/misc/cube_from_x.mdl",
+            Vector(0.01, 1, 1)
+        )
+        --holo:setColor(Color(360 * index / holoCount):hsvToRGB())
+        holo:setParent(holoProxy)
+
+        --coroutine.wait(delayTime)
+
+    end
+end
+
+
+local co = coroutine.create(placeHolograms)
+coroutine.resume(co)
+hook.add("think", "manageHoloCountHook", function ()
+    holoProxy:setAngles(Parent:localToWorldAngles(Angle(0, rotateI, 0)))
+    rotateI = rotateI + 1
+    if coroutine.status(co) ~= "dead" then
+            coroutine.resume(co)
+    end
+end)
