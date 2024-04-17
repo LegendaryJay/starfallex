@@ -20,7 +20,7 @@ if SERVER then
     -- helpers
     local EntityCriticalPD = require("libs/criticalpd.txt")
     
-        //async checks
+        --async checks
     local function checkQ(n)
         return quotaAverage() < quotaMax()*n
     end
@@ -31,7 +31,7 @@ if SERVER then
         end
     end
     
-    //Spawn things
+    --Spawn things
     local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/props_interiors/furniture_couch02a.mdl", false)
         -- Makes calculating from chair center easier    
     local holoProxy = holograms.create(

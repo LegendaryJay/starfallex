@@ -26,7 +26,7 @@ if SERVER then
     -- helpers
     local EntityCriticalPD = require("libs/criticalpd.txt")
     
-        //async checks
+        --async checks
     local function checkQ(n)
         return quotaAverage() < quotaMax()*n
     end
@@ -37,18 +37,26 @@ if SERVER then
         end
     end
     
-    //Spawn things
+    --Spawn things
     local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/props_interiors/furniture_couch02a.mdl", false)
-    net.start("chairSpawn")
-        net.writeString(message)
-    net.send()
+    
+    chair:setMass(100)
     chair:enableGravity()
-        -- Makes calculating from chair center easier    
+        -- Makes calculating from chair center easier
+        
+    local holoProxy = holograms.create(
+        chair:getPos(),
+        chair:getAngles(),
+        "models/sprops/misc/axis_plane.mdl",
+        Vector(1, 1, 1)
+    )
+    holoProxy:setParent(chair)
+        
     local holoProxy = holograms.create(
         chair:obbCenterW(),
         chair:getAngles(),
         "models/sprops/misc/axis_plane.mdl",
-        Vector(0, 0, 0)
+        Vector()
     )
     holoProxy:setParent(chair)
     
@@ -57,7 +65,7 @@ if SERVER then
         chair:obbCenterW(),
         Angle(),
         "models/sprops/misc/axis_plane.mdl",
-        Vector(1, 1, 1)
+        Vector()
     )
 
     
@@ -249,56 +257,7 @@ if SERVER then
     
 else
     
-    if player() != owner() then return  end
 
-    net.receive()
-
-    local function drawTextFromTable(t)
-        local startPos = Vector(10, 250)
-        local gap = 15
-        local index = 0
-        for key,value in pairs(t) do
-            
-            render.drawSimpleText(
-                startPos.x, 
-                startPos.y + gap * index, 
-                key .. ": " .. value
-            )
-            index = index + 1
-        end
-    end
-            
-    
-    local function drawLineFromWorld(startPos, endPos)
-        local startScreen = startPos:toScreen()
-        local endScreen = endPos:toScreen()
-
-        if startScreen and endScreen then
-            render.setColor(Color(255, 0, 0))
-            render.drawLine(startScreen.x, startScreen.y, endScreen.x,endScreen.y)
-        end
-    end
-    
-    local function drawPointFromWorld(point)
-        local screenPoint = point:toScreen()
-
-        if screenPoint then
-            render.setColor(Color(255, 0, 0))
-            render.drawFilledCircle(screenPoint.x, screenPoint.y, 5)
-        end
-    end
-    
-    -- Main rendering hook
-    hook.add("drawhud", "drawWorldLine", function()
-        -- Define your world coordinate start and end points
-        local startPos = chip():getPos()  -- Example coordinates
-        local endPos = owner():getPos()    -- Example coordinates
-    
-        -- Call the function to draw the line
-        drawLineFromWorld(startPos, endPos)
-        drawPointFromWorld(chair:getPos() + Vector(0,0, 100))
-    end)
-    enableHud(owner(), true)
 end
 
 

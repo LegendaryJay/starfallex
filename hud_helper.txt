@@ -1,153 +1,216 @@
 -- @name Hud Helper
--- @server
+-- @client
 
 local HudHelper = class("HudHelper")
 
-function HudHelper:initialize(phys, translationGain, rotationGain)
+function HudHelper:initialize()
     self.textTable = {}
     self.pointTable = {}
     self.lineTable = {}
+    
+    self.nextUpdate = 0
+    self.updateInterval = 0.1
+    
     return self
 end
 
--- Adding data
-function HudHelper:addText(title, text)
-    item = {
-        title = title,
-        text = text
-    }
-    table:insert(self.textTable, item)
-end
-function HudHelper:addSeparateText()
-    table:insert(self.textTable, {})
-end
+----------
+-- Draw --
+----------
 
-function HudHelper:addWorldPoint(vector, color, text)
-    local item = { 
-        vector = vector,
-        color = color,
-        text = text
-    }
-    table:insert(self.pointTable, item)
-end
+    -- Text Stuff --
 
-function HudHelper:addWorldLine(vectorA, vectorA, color, text)
-    local item = { 
-        vectorA = vectorA,
-        vectorB = vectorB,
-        color = color,
-        text = text
-    }
-    table:insert(self.pointTable, item)
-end
-
--- net stuff
-function HudHelper:send()
-    local packet = {
-        self.textTable,
-        self.pointTable,
-        self.lineTable
-    }
+    function HudHelper:addText(index, title, text)
+        local item = {
+            title = title,
+            text = tostring(text)
+        }
+        self.textTable[index] = item
+    end
     
+    
+    function HudHelper:drawText(x, y, title, text)
+        render.drawSimpleText(
+            x,
+            y,
+            title .. ": " .. text
+        )
+    
+    end
+    
+    function HudHelper:drawAllText()
+        local startPos = Vector(10, 250)
+        local gap = 15
+    
+        for index,value in pairs(self.textTable) do
+            title = value["title"]
+            text = value["text"]
+            
+            
+            if text then
+                
+                self:drawText(
+                    startPos.x, 
+                    startPos.y + gap * index, 
+                    title,
+                    text
+                )
+            end
+        end
+    end
+    
+    
+
+    -- Point Stuff --
+
+    
+    function HudHelper:addPoint(index, vector, color, text)
+        local item = { 
+            vector = vector,
+            color = color,
+            text = text
+        }
+        self.pointTable[index] = item
+    end
+    
+    function HudHelper:drawPoint(vector, color, text)
+        local screenPoint = vector:toScreen()
+    
+        if screenPoint then
+            render.setColor(color)
+            
+            if text then
+                render.drawSimpleText(screenPoint.x,screenPoint.y - 15, text)
+            end
+            render.drawFilledCircle(screenPoint.x, screenPoint.y, 5)
+        end
+    end
+    
+    function HudHelper:drawAllPoints()
+        for _,item in pairs(self.pointTable) do
+    
+            self:drawPoint(
+                item["vector"], 
+                item["color"],
+                item["text"]
+            )
+    
+        end
+    end
+    
+
+    -- Line Stuff --
+
+    
+    function HudHelper:addLine(index, vectorA, vectorB, color, text)
+        local item = { 
+            vectorA = vectorA,
+            vectorB = vectorB,
+            color = color,
+            text = text
+        }
+        self.lineTable[index] = item
+    end
+    
+    
+    function HudHelper:drawLine(startPos, endPos, color, text)
+        local startScreen = startPos:toScreen()
+        local endScreen = endPos:toScreen()
+    
+        if startScreen and endScreen then
+            render.setColor(color)
+            if text then
+                local midX = (startScreen.x + endScreen.x) / 2
+                local midY = (startScreen.y + endScreen.y) / 2
+                
+                render.drawSimpleText(midX, midY, text, TEXT_ALIGN.CENTER)
+            end
+            
+            render.drawLine(startScreen.x, startScreen.y, endScreen.x,endScreen.y)
+        end
+    end
+    
+    function HudHelper:drawAllLines()
+        
+        for _,item in pairs(self.lineTable) do
+            self:drawLine(
+                item["vectorA"], 
+                item["vectorB"],
+                item["color"],
+                item["text"]
+            )
+    
+        end
+    end
+    
+
+    -- Draw all --
+
+    
+    function HudHelper:drawAll()
+        self:drawAllText()
+        self:drawAllLines()
+        self:drawAllPoints()
+    end
+
+
+-------------------------
+-- CLient-Server stuff --
+-------------------------
+function HudHelper:send()
     net.start("hudHelper")
-        net.writeTable(packet)
+        net.writeTable({self.textTable, self.pointTable, self.lineTable})
     net.send()
 end
 
-function HudHelper:receive()
+function HudHelper:sendonInterval(interval)
+    timer.create("sendHudData", interval, 0, function() self:send() end)
+end
+
+function HudHelper:setupClientNet()
     net.receive("hudHelper", function (len, ply)
         if ply != me then return end
 
-
         local packet = net.readTable()
-        
-        self.textTable = packet[1]
-        self.pointTable = packet[2]
-        self.lineTable = packet[3]
-        --[[
         table.merge(self.textTable, packet[1])
         table.merge(self.pointTable, packet[2])
         table.merge(self.lineTable, packet[3])
-        -]]
+
     end)
 end
 
--- Draw Text
-function HudHelper:drawText(x, y, title, text)
-    render.drawSimpleText(
-        x,
-        y,
-        title .. ": " .. text
-    )
-end
-
-function HudHelper:drawAllText()
-    local startPos = Vector(10, 250)
-    local gap = 15
-    local index = 0
-    for index,value in ipairs(self.textTable) do
-        title = value["title"]
-        text = value["text"]
-        if text then
-            self:drawText(
-                startPos.x, 
-                startPos.y + gap * index, 
-                title,
-                text
-            )
-        end
-    end
-end
-            
--- Draw Line
-function HudHelper:drawLineFromWorld(startPos, endPos, color, text)
-    local startScreen = startPos:toScreen()
-    local endScreen = endPos:toScreen()
-
-    if startScreen and endScreen then
-        render.setColor(Color(255, 0, 0))
-        render.drawLine(startScreen.x, startScreen.y, endScreen.x,endScreen.y)
-    end
-end
-
-function HudHelper:drawAllWorldLines()
-    for key,value in pairs(self.lineTable) do
-        self:drawText(
-            startPos.x, 
-            startPos.y + gap * index, 
-            key,
-            value
-        )
-        index = index + 1
-    end
-end
-
-
-function HudHelper:drawPointFromWorld(point)
-    local screenPoint = point:toScreen()
-
-    if screenPoint then
-        render.setColor(Color(255, 0, 0))
-        render.drawFilledCircle(screenPoint.x, screenPoint.y, 5)
-    end
-end
-
-function HudHelper:drawAll()
-    HudHelper:drawTextTable()
-    HudHelper:drawTextTable()
-    HudHelper:drawTextTable()
-end
+function HudHelper:setupSimpleClient()
+    if player() != owner() then return end
     
-    -- Main rendering hook
-    hook.add("drawhud", "drawWorldLine", function()
-        -- Define your world coordinate start and end points
-        local startPos = chip():getPos()  -- Example coordinates
-        local endPos = owner():getPos()    -- Example coordinates
-    
-        -- Call the function to draw the line
-        drawLineFromWorld(startPos, endPos)
-        drawPointFromWorld(chip():getPos() + Vector(0,0, 100))
+    self:setupClientNet()
+    hook.add("drawhud", "HudHelper", function()
+        self:drawAll()
     end)
+    
     enableHud(owner(), true)
+end
+
+
+
+-------------
+-- Example --
+-------------
+
+--[[
+local hud = HudHelper:new()
+if CLIENT then 
+    hud:setupSimpleClient()
+else 
+    local chip = chip()
     
-    return HudHelper
+    hook.add("think", "updateHud", function()
+        hud:addText(1, "Location",chip:getPos(), Color(225,0,0))
+        hud:addPoint(1, chip:getPos(), Color(0,255,0), "Chip Pos")
+        hud:addLine(1, chip:getPos(), chip:obbCenterW(), Color(0, 0, 255), "PosDiff")
+    end) 
+    
+    hud:sendonInterval(0.05)
+end
+]]--
+
+return HudHelper
