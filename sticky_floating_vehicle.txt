@@ -1,0 +1,473 @@
+--@name Floating Vehicle
+--@author Lil'Tugboat
+--@include libs/criticalpd.txt
+--@include libs/hud_helper.txt
+--@shared
+  
+local HudHelper = require("libs/hud_helper.txt")  
+local hud = HudHelper:new()
+
+if SERVER then
+    hud:sendonInterval(0.05)
+    
+    local targetHeight = 50
+    local translationGain = 50 -- Set to desired stiffness
+    local rotationGain = 50 -- Set to desired rotational stiffness
+    
+    local sensorDensity = 50
+    local targetRadius = 70
+    
+    local sensorSparsity = 10 --Degrees: lower = dense, higher = sparse
+    
+    local holoVisual = true
+    
+    ---------------------------------------------------------
+    
+    local lastMovement = Vector()
+    
+    
+    -- helpers
+    local EntityCriticalPD = require("libs/criticalpd.txt")
+    
+        //async checks
+    local function checkQ(n)
+        return quotaAverage() < quotaMax()*n
+    end
+    
+    local function yieldCheck()
+        if not checkQ(0.95) then
+            coroutine.yield()
+        end
+    end
+    
+    //Spawn things
+    local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/props_interiors/furniture_couch02a.mdl", true)
+    
+    --chair:setMass(100)
+    --chair:enableGravity()
+        
+    local holoProxy = holograms.create(
+        chair:getPos(),
+        chair:getAngles(),
+        "models/sprops/misc/axis_plane.mdl",
+        Vector()
+    )
+    holoProxy:setParent(chair)
+        
+    local holoProxy = holograms.create(
+        chair:obbCenterW(),
+        chair:getAngles(),
+        "models/sprops/misc/axis_plane.mdl",
+        Vector()
+    )
+    holoProxy:setParent(chair)
+    
+
+--[[
+    local moveVisHolo = holograms.create(
+        chair:obbCenterW(),
+        Angle(),
+        "models/sprops/misc/axis_plane.mdl",
+        Vector()
+    )
+]]
+
+    
+    -- Sets up Physics stuff
+    local physObj = chair:getPhysicsObject()
+    local pdController = EntityCriticalPD:new(physObj, translationGain, rotationGain)
+    
+    -- sets up visualization
+    local hitHolos = {}
+    
+    
+--[[
+    local function spawnSensorHolos()
+       
+        return coroutine.create(function()
+            for index = 1, sensorDensity, 1 do
+                
+                local hitHolo = holograms.create(
+                    holoProxy:getPos(),
+                    holoProxy:getAngles(),
+                    "models/holograms/hq_icosphere.mdl",
+                    Vector(1, 1, 1)
+                )
+                --hitHolo:setParent(holoProxy)
+                table.insert(hitHolos, hitHolo)
+                yieldCheck()
+            end
+        end)
+    end
+]]
+    
+    --local initHolos = spawnSensorHolos()
+--[[
+    if holoVisual then
+        hook.add("think", "initHolos", function ()
+            if coroutine.status(initHolos) ~= "dead" then
+            
+                    coroutine.resume(initHolos)
+            else 
+                hook.remove("think", "initHolos")
+            end 
+        end)
+    end
+
+]]
+
+
+    function interpolateColor(component1, component2, weight)
+        return component1 + (component2 - component1) * weight
+    end
+    
+function getHoloColor(value)
+    
+    local colors = {
+        [-1] = Color(255, 0, 0, 255), 
+        [0]  = Color(255, 255, 255, 255), 
+        [1]  = Color(0, 255, 0, 255) 
+    }
+
+    -- Directly return the color if the value is -1, 0, or 1
+    if colors[value] then
+        return colors[value]
+    end
+
+    -- Find the nearest known values and interpolate between them
+    local lower = -1
+    local upper = 1
+    if value < -1 then
+        lower, upper = -1, 0  -- Interpolate between red and white for values less than -1
+    elseif value > 1 then
+        lower, upper = 0, 1   -- Interpolate between white and green for values greater than 1
+    else
+        if value < 0 then
+            lower, upper = -1, 0  -- Interpolate between red and white
+        else
+            lower, upper = 0, 1   -- Interpolate between white and green
+        end
+    end
+
+    -- Calculate the interpolation factor (t)
+    local t = (value - lower) / (upper - lower)
+
+    -- Interpolate red, green, and blue components
+    local r = math.lerp(t, colors[lower].r, colors[upper].r)
+    local g = math.lerp(t, colors[lower].g, colors[upper].g)
+    local b = math.lerp(t, colors[lower].b, colors[upper].b)
+    
+    -- Return the interpolated color
+    return Color(r, g, b, 255)
+end
+
+    
+    -- setup Sensors
+    local totalSensorVector = Vector()
+
+    local spinItteration = 0 
+    
+    local sensors = {}
+    
+    --[[
+        isAttached = false,
+        attachedEntity = nil,
+        endPos = vector,
+        localEntityVector = nil,
+        localVector = localVector,
+        localAngle = localVector:getAngle()
+    ]]--
+    
+    
+    local bin = {}
+    local function resetSensorBin()
+        bin = {}
+    end
+    
+    local function getBinName(angle)
+        local pitch = (chipAng[1] + 90) % 360
+        pitch = math.floor(pitch / sensorSparsity) * sensorSparsity
+        
+        local yaw = math.round(chipAng[2])
+        yaw = math.floor(pitch / sensorSparsity) * sensorSparsity
+        
+        return pitch .. "," .. yaw
+    end
+    
+    local function addSensorToBin(sensor)
+        binString = getBinName(sensor.localAngle)
+        sensor.bin = binString
+        bin[binString] = sensor
+    end
+    
+    local function randomAngle()
+        return Angle(math.random() * 360, math.random() * 360, 0)
+    end
+    
+
+        
+  
+    local function resetSensor(index)
+        local localVector = randomAngle():getVector()
+        local vector = chair:obbCenterW() + localVector * targetRadius
+
+        local sensor = {
+            isAttached = false,
+            attachedEntity = nil,
+            endPos = vector,
+            localEntityVector = nil,
+            localVector = localVector,
+            localAngle = localVector:getAngle()
+        }
+        addSensorToBin(sensor)
+        sensors[i] = sensor
+        
+    end
+    
+    local function initSensors()
+        for i = 1, sensorDensity, 1 do
+            resetSensor(i)
+        end
+    end
+
+    local function moveSensors()
+        for i = 1, sensorDensity, 1 do
+            local sensor = sensors[i]
+            if sensor.isAttached then 
+                if sensor.attachedEntity then
+                    sensor.endPos = sensor.attachedEntity:localToWorld(sensor.localEntityVector)
+                end
+                sensor.localVector = (sensor.endPos - chair:obbCenterW()):getNormalized()
+                sensor.localAngle = sensor.localVector:getAngle()
+            else
+                sensor.localVector = (sensor.endPos - chair:obbCenterW()):getNormalized()
+                sensor.endPos = chair:obbCenterW() + (sensor.localVector + randomVector()*0.05):getNormalized() * targetRadius
+                sensor.localAngle = sensor.localVector:getAngle()
+            end
+            local holo = hitHolos[i]
+            if not holo then
+                holo = holograms.create(
+                    sensor.endPos,
+                    sensor.localVector:getAngle(),
+                    "models/holograms/hq_icosphere.mdl",
+                    Vector(1, 1, 1)
+                )
+                hitHolos[i] = holo
+            else
+                holo:setPos(sensor.endPos)
+                holo:setAngles(sensor.localAngle)
+            end
+            
+            -- remember sensor location
+            
+
+                
+        end
+    end
+    
+    initSensors()
+    
+    
+    local function useSensors()
+        for i = 1, sensorDensity, 1 do
+            local sensor = sensors[i]
+            
+            if not sensor.isAttached then 
+                local tracer = trace.line(chair:obbCenterW(), chair:obbCenterW() + sensor.localVector * targetRadius * 2 , chair)
+                if tracer.Hit then
+                    sensor.isAttached = true
+                    if tracer.Entity then
+                        sensor.attachedEntity = tracer.Entity
+                        sensor.localEntityVector = tracer.Entity:worldToLocal(tracer.HitPos)
+                    end
+                end
+                sensor.endPos = tracer.HitPos
+            else
+                local dist = (sensor.endPos - chair:obbCenterW()):getLength() - targetRadius
+                if dist > targetRadius then 
+                    dist = 0
+                    sensor.isAttached = false
+                    sensor.attachedEntity = nil
+                    sensor.endPos = chair:obbCenterW() + sensor.localVector * targetRadius
+                    sensor.localEntityVector = nil
+                end
+                hitHolos[i]:setColor(getHoloColor(dist / targetRadius))
+
+            end
+        end
+
+        
+        
+        
+--[[        return coroutine.create(function()
+        
+
+            local goldenAngle = 2.399963229728653
+            local offset = 2 / sensorDensity
+            
+            
+            while true do
+                local localTotalSensorVector = Vector()
+                spinItteration = spinItteration + 0.1
+                
+                local repelColor = Color(255, 0, 0)
+                local stickyColor = Color(0, 255, 0)
+                
+                
+                for index = 1, sensorDensity, 1 do
+                    local y = ((index - 1) * offset - 1) + offset / 2
+                    local r = math.sqrt(1 - y * y)
+                    local phi = ((index - 1) % sensorDensity) * goldenAngle
+                    
+                    local localVector = Vector(
+                        math.cos(phi + spinItteration) * r,
+                        math.sin(phi + spinItteration) * r,
+                        y
+                    )
+                    
+                    localVector:mul(totalSensorRadius)
+                    
+                    local t = trace.line(holoProxy:getPos(), holoProxy:localToWorld(localVector), chair, MASK.ALL)
+                    
+                    traceHitVector = holoProxy:getPos() - t.HitPos
+                    traceHitNormal = traceHitVector:getNormalized()
+                    traceHitMagnitude = math.abs(traceHitVector:getLength())
+                    
+                    local modifiedVector = Vector()
+                    local holoColor = Color(255,255,255, 0)
+                    
+                    if t.Hit then
+                        if traceHitMagnitude <= sensorRepelRadius then
+                            modifiedVector = traceHitVector
+                            holoColor = repelColor
+                            
+                        elseif traceHitMagnitude > sensorRepelRadius + sensorDeadRadius then
+                            modifiedVector = traceHitNormal
+                            local newMagnitude = stickiness * (traceHitMagnitude - totalSensorRadius)/sensorStickyradius
+                            modifiedVector:mul(newMagnitude)
+                            holoColor = stickyColor
+                        end 
+                    end
+                    localTotalSensorVector = localTotalSensorVector + modifiedVector
+
+                    if holoVisual and hitHolos[index] then 
+                        hitHolos[index]:setPos(t.HitPos)
+                        hitHolos[index]:setColor(holoColor)
+                        
+                        hitHolos[index]:setAngles(modifiedVector:getAngle())
+                    end
+                    yieldCheck()
+                    
+                end
+                totalSensorVector = localTotalSensorVector
+                coroutine.yield()
+            end
+
+        end)]]
+    end
+    
+    --local sense = useSensors()
+    hook.add("think", "sensors", function ()
+        moveSensors()
+        useSensors()
+--[[
+        if coroutine.status(sense) ~= "dead" then
+                coroutine.resume(sense)
+        end 
+]]
+    end)
+    
+    --movements
+    local lastVector = Vector()
+    
+    local function getClampedVector(vec, maxMag)
+    if vec == Vector() then return Vector() end
+        local mag = math.min(math.abs(vec:getLength()), maxMag)
+        local vector = vec:getNormalized() or Vector()
+
+        vector:mul(mag)
+        return vector
+    end
+    
+    local lastMag = 0
+    local lastVec = Vector()
+    local lastPos = chair:getPos()
+
+    hook.add("think", "movements", function ()
+        --hud:addPoint(1, chair:getPos(), Color(0,0,255))
+        --local newMagnitude = sensorRadius - minSensorLength
+        --local sensorVectorNormal = averageSensorVector:getNormalized()
+        --sensorVectorNormal:mul(newMagnitude)
+        
+        
+        --local targetVector = holoProxy:getPos() +  sensorVectorNormal
+--[[
+        chairDelta = chair:getPos() - lastPos
+        
+        targetLocalVector = getClampedVector(totalSensorVector, 20)
+        targetLocalVector = -chairDelta * 10 + targetLocalVector
+        
+        hud:addText(2, "Delta Length",chairDelta:getLength() )
+        hud:addLine(1, chair:getPos(), chair:getPos() + targetLocalVector, Color(0,0,255), "delta")
+
+        
+        hud:addText(1, "Move Length", targetLocalVector:getLength())
+        
+        --moveVisHolo:setPos(targetVector)
+        
+        --if minSensorLength < sensorRadius * 0.99 then 
+            pdController:setTarget(targetLocalVector + chair:getPos(), Angle())
+            pdController:simulate()
+        --end
+        lastVec = targetLocalVector
+        lastMag = targetLocalVector:getLength()
+        lastPos = chair:getPos()
+]]
+    end)
+    
+
+    local driver
+
+    local function set_driver(ply, vehicle, role)
+        if vehicle ~= chair then return end 
+        driver = role and ply
+    end
+
+    hook.add("PlayerEnteredVehicle", "SetDriver", set_driver)
+    hook.add("PlayerLeaveVehicle", "SetDriver", set_driver)
+    
+    
+    local velocity = 0
+    local acceleration = 0
+    
+    -- Map of inputs and their acceleration values / forces
+    local inputs = {
+        [IN_KEY.FORWARD] = 10,
+        [IN_KEY.BACK] = -8,
+    }
+    
+    
+    hook.add("KeyPress", "KeyPress", function(ply, key)
+        if ply ~= driver then return end 
+        if inputs[key] then
+        end
+    end)
+    
+    hook.add("KeyRelease", "KeyRelease", function(ply, key)
+        if ply ~= driver then return end 
+        if inputs[key] then 
+        end
+    end)
+    
+    
+    hook.add("Tick", "Update", function()
+    end)
+
+    
+else
+    hud:setupSimpleClient()
+
+end
+
+
+

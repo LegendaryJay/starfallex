@@ -80,7 +80,7 @@ end
             render.setColor(color)
             
             if text then
-                render.drawSimpleText(screenPoint.x,screenPoint.y + 15, text, TEXT_ALIGN.CENTER)
+                render.drawSimpleText(screenPoint.x,screenPoint.y - 15, text)
             end
             render.drawFilledCircle(screenPoint.x, screenPoint.y, 5)
         end
