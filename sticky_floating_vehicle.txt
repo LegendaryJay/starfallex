@@ -17,7 +17,7 @@ if SERVER then
     local sensorDensity = 50
     local targetRadius = 70
     
-    local sensorSparsity = 10 --Degrees: lower = dense, higher = sparse
+    local sensorSparsity = 20 --Degrees: lower = dense, higher = sparse
     
     local holoVisual = true
     
@@ -180,49 +180,71 @@ end
     
     
     local bin = {}
-    local function resetSensorBin()
+    local function resetBin()
         bin = {}
     end
     
     local function getBinName(angle)
-        local pitch = (chipAng[1] + 90) % 360
+        local pitch = (angle[1] + 90) % 360
         pitch = math.floor(pitch / sensorSparsity) * sensorSparsity
         
-        local yaw = math.round(chipAng[2])
-        yaw = math.floor(pitch / sensorSparsity) * sensorSparsity
+        local yaw = math.round(angle[2])
+        yaw = math.floor(yaw / sensorSparsity) * sensorSparsity
         
         return pitch .. "," .. yaw
     end
     
     local function addSensorToBin(sensor)
-        binString = getBinName(sensor.localAngle)
+        local binString = getBinName(sensor.localAngle)
         sensor.bin = binString
-        bin[binString] = sensor
+        bin[binString] = (bin[binString] or 0) + 1
     end
+    
+    local function binIsFull(sensor, max)
+        if not bin[sensor.bin] then return false end
+        return bin[sensor.bin] > max
+    end
+    
     
     local function randomAngle()
         return Angle(math.random() * 360, math.random() * 360, 0)
     end
     
+    local function randomVector()
 
-        
-  
+        local x = 2 * math.random() - 1
+        local y = 2 * math.random() - 1
+        local z = 2 * math.random() - 1
+    
+        return Vector(x, y, z)
+    end
+    
     local function resetSensor(index)
-        local localVector = randomAngle():getVector()
+        local vel = chair:getVelocity()
+        local dirtyNormalVel = Vector()
+        if not vel:isZero() then 
+            local maxVelNumber = math.max(math.abs(vel[1]), math.abs(vel[2]), math.abs(vel[3]))
+            dirtyNormalVel = vel / maxVelNumber
+        end
+        local localVector = (dirtyNormalVel + randomVector()):getNormalized()
+        local localAngle = localVector:getAngle()
         local vector = chair:obbCenterW() + localVector * targetRadius
-
+    
         local sensor = {
             isAttached = false,
             attachedEntity = nil,
             endPos = vector,
             localEntityVector = nil,
             localVector = localVector,
-            localAngle = localVector:getAngle()
+            localAngle = localAngle
         }
         addSensorToBin(sensor)
-        sensors[i] = sensor
-        
+        sensors[index] = sensor
     end
+    
+
+    
+   -- local function 
     
     local function initSensors()
         for i = 1, sensorDensity, 1 do
@@ -240,15 +262,19 @@ end
                 sensor.localVector = (sensor.endPos - chair:obbCenterW()):getNormalized()
                 sensor.localAngle = sensor.localVector:getAngle()
             else
-                sensor.localVector = (sensor.endPos - chair:obbCenterW()):getNormalized()
-                sensor.endPos = chair:obbCenterW() + (sensor.localVector + randomVector()*0.05):getNormalized() * targetRadius
+                sensor.localVector = (sensor.endPos - chair:obbCenterW()+ randomVector()*0.1):getNormalized()
+                sensor.endPos = chair:obbCenterW() + sensor.localVector * targetRadius
                 sensor.localAngle = sensor.localVector:getAngle()
             end
+            addSensorToBin(sensor)
+            
+            
+
             local holo = hitHolos[i]
             if not holo then
                 holo = holograms.create(
                     sensor.endPos,
-                    sensor.localVector:getAngle(),
+                    sensor.localAngle,
                     "models/holograms/hq_icosphere.mdl",
                     Vector(1, 1, 1)
                 )
@@ -257,11 +283,6 @@ end
                 holo:setPos(sensor.endPos)
                 holo:setAngles(sensor.localAngle)
             end
-            
-            -- remember sensor location
-            
-
-                
         end
     end
     
@@ -273,6 +294,11 @@ end
             local sensor = sensors[i]
             
             if not sensor.isAttached then 
+                if binIsFull(sensor, 1) then
+                    resetSensor(i)
+                    break
+                end
+                
                 local tracer = trace.line(chair:obbCenterW(), chair:obbCenterW() + sensor.localVector * targetRadius * 2 , chair)
                 if tracer.Hit then
                     sensor.isAttached = true
@@ -282,99 +308,28 @@ end
                     end
                 end
                 sensor.endPos = tracer.HitPos
+
             else
-                local dist = (sensor.endPos - chair:obbCenterW()):getLength() - targetRadius
-                if dist > targetRadius then 
-                    dist = 0
-                    sensor.isAttached = false
-                    sensor.attachedEntity = nil
-                    sensor.endPos = chair:obbCenterW() + sensor.localVector * targetRadius
-                    sensor.localEntityVector = nil
+                if binIsFull(sensor, 2) then
+                    resetSensor(i)
+                    break
                 end
-                hitHolos[i]:setColor(getHoloColor(dist / targetRadius))
+                local dist = (sensor.endPos - chair:obbCenterW()):getLength() - targetRadius
+                if dist > targetRadius then
+                    resetSensor(i)
+                else 
+                    hitHolos[i]:setColor(getHoloColor(dist / targetRadius))
+                end
 
             end
         end
-
-        
-        
-        
---[[        return coroutine.create(function()
-        
-
-            local goldenAngle = 2.399963229728653
-            local offset = 2 / sensorDensity
-            
-            
-            while true do
-                local localTotalSensorVector = Vector()
-                spinItteration = spinItteration + 0.1
-                
-                local repelColor = Color(255, 0, 0)
-                local stickyColor = Color(0, 255, 0)
-                
-                
-                for index = 1, sensorDensity, 1 do
-                    local y = ((index - 1) * offset - 1) + offset / 2
-                    local r = math.sqrt(1 - y * y)
-                    local phi = ((index - 1) % sensorDensity) * goldenAngle
-                    
-                    local localVector = Vector(
-                        math.cos(phi + spinItteration) * r,
-                        math.sin(phi + spinItteration) * r,
-                        y
-                    )
-                    
-                    localVector:mul(totalSensorRadius)
-                    
-                    local t = trace.line(holoProxy:getPos(), holoProxy:localToWorld(localVector), chair, MASK.ALL)
-                    
-                    traceHitVector = holoProxy:getPos() - t.HitPos
-                    traceHitNormal = traceHitVector:getNormalized()
-                    traceHitMagnitude = math.abs(traceHitVector:getLength())
-                    
-                    local modifiedVector = Vector()
-                    local holoColor = Color(255,255,255, 0)
-                    
-                    if t.Hit then
-                        if traceHitMagnitude <= sensorRepelRadius then
-                            modifiedVector = traceHitVector
-                            holoColor = repelColor
-                            
-                        elseif traceHitMagnitude > sensorRepelRadius + sensorDeadRadius then
-                            modifiedVector = traceHitNormal
-                            local newMagnitude = stickiness * (traceHitMagnitude - totalSensorRadius)/sensorStickyradius
-                            modifiedVector:mul(newMagnitude)
-                            holoColor = stickyColor
-                        end 
-                    end
-                    localTotalSensorVector = localTotalSensorVector + modifiedVector
-
-                    if holoVisual and hitHolos[index] then 
-                        hitHolos[index]:setPos(t.HitPos)
-                        hitHolos[index]:setColor(holoColor)
-                        
-                        hitHolos[index]:setAngles(modifiedVector:getAngle())
-                    end
-                    yieldCheck()
-                    
-                end
-                totalSensorVector = localTotalSensorVector
-                coroutine.yield()
-            end
-
-        end)]]
     end
     
     --local sense = useSensors()
     hook.add("think", "sensors", function ()
+        resetBin()
         moveSensors()
         useSensors()
---[[
-        if coroutine.status(sense) ~= "dead" then
-                coroutine.resume(sense)
-        end 
-]]
     end)
     
     --movements
@@ -394,7 +349,6 @@ end
     local lastPos = chair:getPos()
 
     hook.add("think", "movements", function ()
-        --hud:addPoint(1, chair:getPos(), Color(0,0,255))
         --local newMagnitude = sensorRadius - minSensorLength
         --local sensorVectorNormal = averageSensorVector:getNormalized()
         --sensorVectorNormal:mul(newMagnitude)
@@ -426,6 +380,7 @@ end
     end)
     
 
+--[[
     local driver
 
     local function set_driver(ply, vehicle, role)
@@ -462,6 +417,7 @@ end
     
     hook.add("Tick", "Update", function()
     end)
+]]
 
     
 else
