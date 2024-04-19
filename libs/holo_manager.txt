@@ -1,0 +1,170 @@
+--@name Holomangager
+--@author Lil'Tugboat
+--@server
+
+local HoloManager = class("HoloManager")
+
+function HoloManager:initialize()
+    self.holoRecords = {}   
+    self.scheduledUpdates = {} 
+
+    return self
+end
+
+function HoloManager:getDefaultRecord()
+    return {
+        draw = true,
+        model = "models/holograms/cube.mdl",
+        pos = Vector(),
+        ang = Angle(),
+        color = Color(255, 255, 255),
+        scale = {
+            false, -- isUnit
+            Vector(1,1,1)
+        },
+        mat = "",
+    }
+end
+ 
+-------------------
+-- Modifications --
+-------------------
+
+function HoloManager:create(index, pos, ang, model)
+    local record = self.getDefaultRecord()
+    if pos then
+        record["pos"] = pos
+    end
+    if ang then
+        record["ang"] = ang
+    end
+    if model then
+        record["model"] = model
+    end
+    
+    self.holoRecords[index] = record
+    self.scheduledUpdates[index] = {"create"}
+end
+
+
+function HoloManager:create(index, pos, ang, model)
+    local record = self:getDefaultRecord()
+    record.pos = pos or record.pos
+    record.ang = ang or record.ang
+    record.model = model or record.model
+    self.holoRecords[index] = record
+    self.scheduledUpdates[index] = {create = true}
+end
+
+function HoloManager:setModel(index, model)
+    self.holoRecords[index].model = model
+    self.scheduledUpdates[index]["model"] = true
+end
+
+function HoloManager:setPos(index, pos)
+    self.holoRecords[index].pos = pos
+    self.scheduledUpdates[index]["pos"] = true
+end
+
+function HoloManager:setAng(index, ang)
+    self.holoRecords[index].ang = ang
+    self.scheduledUpdates[index]["ang"] = true
+end
+
+function HoloManager:setColor(index, color)
+    self.holoRecords[index].color = color
+    self.scheduledUpdates[index]["color"] = true
+end
+
+function HoloManager:setScale(index, scale, isUnit)
+    self.holoRecords[index].scale = {isUnit or false, scale}
+    self.scheduledUpdates[index]["scale"] = true
+end
+
+function HoloManager:setMaterial(index, mat)
+    self.holoRecords[index].mat = mat
+    self.scheduledUpdates[index]["material"] = true
+end
+
+function HoloManager:remove(index)
+    self.scheduledUpdates[index]["remove"] = true
+end
+
+
+function HoloManager:applyChanges(index)
+    local updates = self.scheduledUpdates[index]
+    if not updates or #updates == 0 then return end -- No updates scheduled
+
+    local record = self.holoRecords[index]
+    if not record then return end -- No record found
+    
+    local entity = record.entity
+    
+    if updates.remove then
+        entity:remove()
+        table.remove(self.holoRecords, index)
+        table.remove(self.scheduledUpdate, index)
+        return -- Exit after removal
+    end
+    if not entity then
+        if updates.create then
+            entity = hologram.create(record.pos, record.ang, record.model, record.scale[2])
+            updates.pos= false
+            updates.angle = false
+            updates.model = false
+            updates.scale = false
+            record.entity = entity
+        end
+    end
+
+    if not entity then return end -- If still no entity, abort
+
+    if updates.pos then
+        entity:setPos(record.pos)
+    end
+    if updates.ang then
+        entity:setAngles(record.ang)
+    end
+    if updates.scale then
+        if record.scale[1] then -- isUnit
+            entity:setSize(record.scale[2])
+        else
+            entity:setScale(record.scale[2])
+        end
+    end
+    if updates.model and entity.setModel then
+        entity:setModel(record.model)
+    end
+    if updates.color and entity.setColor then
+        entity:setColor(record.color)
+    end
+    if updates.material and entity.setMaterial then
+        entity:setMaterial(record.mat)
+    end
+
+
+    self.scheduledUpdates[index] = {}
+end
+
+
+-- EXAMPLE
+local manager = HoloManager:new()
+local testIndex = 1
+
+manager:create(testIndex, chip():getPos() + Vector(0, 0, 10), Angle(0, 45, 0), "models/props_c17/oildrum001.mdl")
+manager:setPos(testIndex, chip():getPos() + Vector(20, 20, 20))
+
+timer.create("!", 1, 1, function() 
+    manager:setAng(testIndex, Angle(90, 0, 0))
+    manager:setModel(testIndex, "models/holograms/cube.mdl")
+    manager:setColor(testIndex, Color(255, 0, 0))
+    manager:setScale(testIndex, Vector(2, 1, 1), false)
+    manager:setMaterial(testIndex, "models/wireframe")
+    --manager:remove(testIndex)
+    manager:applyChanges(testIndex)
+end)
+
+manager:applyChanges(testIndex)
+
+
+return HoloManager

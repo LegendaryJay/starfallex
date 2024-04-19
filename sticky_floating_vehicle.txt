@@ -4,18 +4,12 @@
 --@include libs/hud_helper.txt
 --@shared
   
-local HudHelper = require("libs/hud_helper.txt")  
-local hud = HudHelper:new()
-
 if SERVER then
-    hud:sendonInterval(0.05)
+    local translationGain = 500 -- Set to desired stiffness
+    local rotationGain = 500 -- Set to desired rotational stiffness
     
-    local targetHeight = 50
-    local translationGain = 50 -- Set to desired stiffness
-    local rotationGain = 50 -- Set to desired rotational stiffness
-    
-    local sensorDensity = 50
-    local targetRadius = 70
+    local sensorDensity = 70
+    local targetRadius = 100
     
     local sensorSparsity = 20 --Degrees: lower = dense, higher = sparse
     
@@ -47,14 +41,6 @@ if SERVER then
     --chair:enableGravity()
         
     local holoProxy = holograms.create(
-        chair:getPos(),
-        chair:getAngles(),
-        "models/sprops/misc/axis_plane.mdl",
-        Vector()
-    )
-    holoProxy:setParent(chair)
-        
-    local holoProxy = holograms.create(
         chair:obbCenterW(),
         chair:getAngles(),
         "models/sprops/misc/axis_plane.mdl",
@@ -63,14 +49,14 @@ if SERVER then
     holoProxy:setParent(chair)
     
 
---[[
+
     local moveVisHolo = holograms.create(
         chair:obbCenterW(),
         Angle(),
         "models/sprops/misc/axis_plane.mdl",
-        Vector()
+        Vector(1, 1, 1)
     )
-]]
+
 
     
     -- Sets up Physics stuff
@@ -78,6 +64,22 @@ if SERVER then
     local pdController = EntityCriticalPD:new(physObj, translationGain, rotationGain)
     
     -- sets up visualization
+    
+    local holoManager = {
+        create = function(pos, ang, model, scale)
+            
+        end
+    
+    
+    
+    }
+    
+    
+    
+    
+    
+    
+    
     local hitHolos = {}
     
     
@@ -253,23 +255,33 @@ end
     end
 
     local function moveSensors()
+        chairPos = chair:obbCenterW()
         for i = 1, sensorDensity, 1 do
             local sensor = sensors[i]
-            if sensor.isAttached then 
+            if sensor.isAttached then -- if stuck
                 if sensor.attachedEntity then
                     sensor.endPos = sensor.attachedEntity:localToWorld(sensor.localEntityVector)
                 end
-                sensor.localVector = (sensor.endPos - chair:obbCenterW()):getNormalized()
+                sensor.localVector = (sensor.endPos - chairPos):getNormalized()
                 sensor.localAngle = sensor.localVector:getAngle()
-            else
-                sensor.localVector = (sensor.endPos - chair:obbCenterW()+ randomVector()*0.1):getNormalized()
-                sensor.endPos = chair:obbCenterW() + sensor.localVector * targetRadius
+            else -- if sensor
+                
+                sensor.localVector = (sensor.endPos - chairPos+ randomVector()*0.1):getNormalized()
+                sensor.endPos = chairPos + sensor.localVector * targetRadius
                 sensor.localAngle = sensor.localVector:getAngle()
+                
+                sensor.holo = {
+                    sensor.localVector * targetRadius
+                    sensor.holoAng = sensor.localAngle
+                    sensor.holoColor = 
+                }
+
             end
             addSensorToBin(sensor)
             
             
 
+--[[
             local holo = hitHolos[i]
             if not holo then
                 holo = holograms.create(
@@ -283,42 +295,64 @@ end
                 holo:setPos(sensor.endPos)
                 holo:setAngles(sensor.localAngle)
             end
+]]
         end
     end
     
     initSensors()
     
+    local targetVecTotal = Vector()
+    local targetVecCount = 0
+    local function setTarget(vector, weight)
+        if not weight then
+            weight = 1
+        end
+        targetVecTotal = targetVecTotal + vector * weight
+        targetVecCount = targetVecCount + weight
+    end
+    
+    local function getTarget() 
+        if targetVecCount and targetVecCount == 0 then return Vector() end
+        return targetVecTotal / targetVecCount
+    end
+    
+    local function look(sensor)
+        local tracer = trace.line(chair:obbCenterW(), chair:obbCenterW() + sensor.localVector * targetRadius * 2 , chair)
+        if tracer.Hit then
+            sensor.isAttached = true
+            if tracer.Entity then
+                sensor.attachedEntity = tracer.Entity
+                sensor.localEntityVector = tracer.Entity:worldToLocal(tracer.HitPos)
+            else 
+                sensor.attachedEntity = nil
+            end
+        end
+        sensor.endPos = tracer.HitPos
+    end
     
     local function useSensors()
+        targetVecTotal = Vector()
+        targetVecCount = 0
         for i = 1, sensorDensity, 1 do
             local sensor = sensors[i]
             
-            if not sensor.isAttached then 
-                if binIsFull(sensor, 1) then
-                    resetSensor(i)
-                    break
-                end
-                
-                local tracer = trace.line(chair:obbCenterW(), chair:obbCenterW() + sensor.localVector * targetRadius * 2 , chair)
-                if tracer.Hit then
-                    sensor.isAttached = true
-                    if tracer.Entity then
-                        sensor.attachedEntity = tracer.Entity
-                        sensor.localEntityVector = tracer.Entity:worldToLocal(tracer.HitPos)
-                    end
-                end
-                sensor.endPos = tracer.HitPos
-
-            else
-                if binIsFull(sensor, 2) then
-                    resetSensor(i)
-                    break
-                end
+            if binIsFull(sensor, 2) then
+                resetSensor(i)
+                break
+            end
+            
+            look(sensor)  
+            
+            if sensor.isAttached then    
                 local dist = (sensor.endPos - chair:obbCenterW()):getLength() - targetRadius
                 if dist > targetRadius then
                     resetSensor(i)
                 else 
-                    hitHolos[i]:setColor(getHoloColor(dist / targetRadius))
+                    local target = chair:obbCenterW() + sensor.localVector * dist
+                    local weight = 1
+                    if (dist < 0) then weight = 3 end
+                    setTarget(target, 3 )
+                    --hitHolos[i]:setColor(getHoloColor(dist / targetRadius))
                 end
 
             end
@@ -348,7 +382,37 @@ end
     local lastVec = Vector()
     local lastPos = chair:getPos()
 
+    timer.create("holoUpdate", 0.2, 0, function ()
+        for i = 1, sensorDensity, 1 do
+            local sensor = sensors[i]
+            local holo = hitHolos[i]
+            --if not sensor[i] then return end
+            if not holo then
+                holo = holograms.create(
+                    sensor.endPos,
+                    sensor.localAngle,
+                    "models/holograms/hq_icosphere.mdl",
+                    Vector(0.5, 0.5, 0.5)
+                )
+                hitHolos[i] = holo
+            else
+                
+                holo:setPos(sensor.endPos)
+                holo:setAngles(sensor.localAngle)
+            end
+        end
+    end)
+-- add color change and make distance cheaper
+        
+        
     hook.add("think", "movements", function ()
+        local target = getTarget()
+        if not target:isZero() then 
+        
+            moveVisHolo:setPos(target)
+            pdController:setTarget(target, Angle())
+            pdController:simulate()
+        end
         --local newMagnitude = sensorRadius - minSensorLength
         --local sensorVectorNormal = averageSensorVector:getNormalized()
         --sensorVectorNormal:mul(newMagnitude)
@@ -421,7 +485,9 @@ end
 
     
 else
-    hud:setupSimpleClient()
+    if player() != owner() then
+     return
+    end
 
 end
 
