@@ -1,15 +1,17 @@
 --@name Floating Vehicle
 --@author Lil'Tugboat
 --@include libs/criticalpd.txt
---@include libs/hud_helper.txt
+--@include libs/holo_manager.txt
 --@shared
   
 if SERVER then
+
+    
     local translationGain = 500 -- Set to desired stiffness
     local rotationGain = 500 -- Set to desired rotational stiffness
     
-    local sensorDensity = 70
-    local targetRadius = 100
+    local sensorDensity = 30
+    local targetRadius = 60
     
     local sensorSparsity = 20 --Degrees: lower = dense, higher = sparse
     
@@ -22,6 +24,8 @@ if SERVER then
     
     -- helpers
     local EntityCriticalPD = require("libs/criticalpd.txt")
+    local HoloManager = require("libs/holo_manager.txt")
+    local holos = HoloManager:new()
     
         //async checks
     local function checkQ(n)
@@ -40,128 +44,51 @@ if SERVER then
     --chair:setMass(100)
     --chair:enableGravity()
         
-    local holoProxy = holograms.create(
+    holos:create(
+        "holoProxy", 
         chair:obbCenterW(),
         chair:getAngles(),
-        "models/sprops/misc/axis_plane.mdl",
-        Vector()
-    )
-    holoProxy:setParent(chair)
+        "models/sprops/misc/axis_plane.mdl"
+    )    
+    
+    holos:setParent("holoProxy", chair)
     
 
-
-    local moveVisHolo = holograms.create(
+    holos:create(
+        "moveVisHolo", 
         chair:obbCenterW(),
         Angle(),
-        "models/sprops/misc/axis_plane.mdl",
-        Vector(1, 1, 1)
-    )
-
-
+        "models/sprops/misc/axis_plane.mdl"
+    )   
     
     -- Sets up Physics stuff
     local physObj = chair:getPhysicsObject()
     local pdController = EntityCriticalPD:new(physObj, translationGain, rotationGain)
     
-    -- sets up visualization
+    -- sets up visualization    
+    function interpolateColor(x)
+        local repelColor = {255, 0, 0} -- Color at x = -1
+        local NeutralColor = {255, 255, 255} -- Color at x = 0
+        local AttachColor = {0, 255, 0} -- Color at x = 1
     
-    local holoManager = {
-        create = function(pos, ang, model, scale)
-            
-        end
+        local resultColor = {0, 0, 0}
     
-    
-    
-    }
-    
-    
-    
-    
-    
-    
-    
-    local hitHolos = {}
-    
-    
---[[
-    local function spawnSensorHolos()
-       
-        return coroutine.create(function()
-            for index = 1, sensorDensity, 1 do
-                
-                local hitHolo = holograms.create(
-                    holoProxy:getPos(),
-                    holoProxy:getAngles(),
-                    "models/holograms/hq_icosphere.mdl",
-                    Vector(1, 1, 1)
-                )
-                --hitHolo:setParent(holoProxy)
-                table.insert(hitHolos, hitHolo)
-                yieldCheck()
-            end
-        end)
-    end
-]]
-    
-    --local initHolos = spawnSensorHolos()
---[[
-    if holoVisual then
-        hook.add("think", "initHolos", function ()
-            if coroutine.status(initHolos) ~= "dead" then
-            
-                    coroutine.resume(initHolos)
-            else 
-                hook.remove("think", "initHolos")
-            end 
-        end)
-    end
-
-]]
-
-
-    function interpolateColor(component1, component2, weight)
-        return component1 + (component2 - component1) * weight
-    end
-    
-function getHoloColor(value)
-    
-    local colors = {
-        [-1] = Color(255, 0, 0, 255), 
-        [0]  = Color(255, 255, 255, 255), 
-        [1]  = Color(0, 255, 0, 255) 
-    }
-
-    -- Directly return the color if the value is -1, 0, or 1
-    if colors[value] then
-        return colors[value]
-    end
-
-    -- Find the nearest known values and interpolate between them
-    local lower = -1
-    local upper = 1
-    if value < -1 then
-        lower, upper = -1, 0  -- Interpolate between red and white for values less than -1
-    elseif value > 1 then
-        lower, upper = 0, 1   -- Interpolate between white and green for values greater than 1
-    else
-        if value < 0 then
-            lower, upper = -1, 0  -- Interpolate between red and white
+        if x < 0 then
+            local t = x + 1
+            resultColor[1] = math.lerp(t, repelColor[1], NeutralColor[1])
+            resultColor[2] = math.lerp(t, repelColor[2], NeutralColor[2])
+            resultColor[3] = math.lerp(t, repelColor[3], NeutralColor[3])
         else
-            lower, upper = 0, 1   -- Interpolate between white and green
+
+            local t = x 
+            resultColor[1] = math.lerp(t, NeutralColor[1], AttachColor[1])
+            resultColor[2] = math.lerp(t, NeutralColor[2], AttachColor[2])
+            resultColor[3] = math.lerp(t, NeutralColor[3], AttachColor[3])
         end
-    end
-
-    -- Calculate the interpolation factor (t)
-    local t = (value - lower) / (upper - lower)
-
-    -- Interpolate red, green, and blue components
-    local r = math.lerp(t, colors[lower].r, colors[upper].r)
-    local g = math.lerp(t, colors[lower].g, colors[upper].g)
-    local b = math.lerp(t, colors[lower].b, colors[upper].b)
     
-    -- Return the interpolated color
-    return Color(r, g, b, 255)
-end
+        -- Create the color object (assuming a Color function exists that takes RGB)
+        return Color(resultColor[1], resultColor[2], resultColor[3])
+    end
 
     
     -- setup Sensors
@@ -251,6 +178,9 @@ end
     local function initSensors()
         for i = 1, sensorDensity, 1 do
             resetSensor(i)
+            holos:create(i)
+            holos:setModel(i, "models/holograms/hq_icosphere.mdl")
+            holos:setScale(i, Vector(0.3, 0.3, 0.3))
         end
     end
 
@@ -260,42 +190,23 @@ end
             local sensor = sensors[i]
             if sensor.isAttached then -- if stuck
                 if sensor.attachedEntity then
+                    
                     sensor.endPos = sensor.attachedEntity:localToWorld(sensor.localEntityVector)
                 end
                 sensor.localVector = (sensor.endPos - chairPos):getNormalized()
                 sensor.localAngle = sensor.localVector:getAngle()
             else -- if sensor
                 
-                sensor.localVector = (sensor.endPos - chairPos+ randomVector()*0.1):getNormalized()
+                sensor.localVector = (sensor.endPos - chairPos):getNormalized()
                 sensor.endPos = chairPos + sensor.localVector * targetRadius
                 sensor.localAngle = sensor.localVector:getAngle()
-                
-                sensor.holo = {
-                    sensor.localVector * targetRadius
-                    sensor.holoAng = sensor.localAngle
-                    sensor.holoColor = 
-                }
 
             end
             addSensorToBin(sensor)
             
-            
 
---[[
-            local holo = hitHolos[i]
-            if not holo then
-                holo = holograms.create(
-                    sensor.endPos,
-                    sensor.localAngle,
-                    "models/holograms/hq_icosphere.mdl",
-                    Vector(1, 1, 1)
-                )
-                hitHolos[i] = holo
-            else
-                holo:setPos(sensor.endPos)
-                holo:setAngles(sensor.localAngle)
-            end
-]]
+            holos:setPos(i, sensor.endPos)
+            holos:setAng(i, sensor.localAngle)
         end
     end
     
@@ -319,6 +230,7 @@ end
     local function look(sensor)
         local tracer = trace.line(chair:obbCenterW(), chair:obbCenterW() + sensor.localVector * targetRadius * 2 , chair)
         if tracer.Hit then
+            
             sensor.isAttached = true
             if tracer.Entity then
                 sensor.attachedEntity = tracer.Entity
@@ -326,6 +238,8 @@ end
             else 
                 sensor.attachedEntity = nil
             end
+        else 
+           
         end
         sensor.endPos = tracer.HitPos
     end
@@ -343,7 +257,9 @@ end
             
             look(sensor)  
             
-            if sensor.isAttached then    
+            if sensor.isAttached then 
+            holos:setModel(i, "models/holograms/hq_torus.mdl")   
+            holos:setScale(i, Vector(1,1,1))
                 local dist = (sensor.endPos - chair:obbCenterW()):getLength() - targetRadius
                 if dist > targetRadius then
                     resetSensor(i)
@@ -351,10 +267,14 @@ end
                     local target = chair:obbCenterW() + sensor.localVector * dist
                     local weight = 1
                     if (dist < 0) then weight = 3 end
-                    setTarget(target, 3 )
-                    --hitHolos[i]:setColor(getHoloColor(dist / targetRadius))
+                    setTarget(target, 10 )
+                    --holos:setColor(i, interpolateColor(dist / targetRadius))
                 end
 
+            else
+                 holos:setModel(i, "models/holograms/hq_icosphere.mdl")
+                holos:setScale(i, Vector(0.3,0.3,0.3))
+                 
             end
         end
     end
@@ -382,25 +302,10 @@ end
     local lastVec = Vector()
     local lastPos = chair:getPos()
 
-    timer.create("holoUpdate", 0.2, 0, function ()
-        for i = 1, sensorDensity, 1 do
-            local sensor = sensors[i]
-            local holo = hitHolos[i]
-            --if not sensor[i] then return end
-            if not holo then
-                holo = holograms.create(
-                    sensor.endPos,
-                    sensor.localAngle,
-                    "models/holograms/hq_icosphere.mdl",
-                    Vector(0.5, 0.5, 0.5)
-                )
-                hitHolos[i] = holo
-            else
-                
-                holo:setPos(sensor.endPos)
-                holo:setAngles(sensor.localAngle)
-            end
-        end
+    timer.create("holoUpdate", 0.07, 0, function ()
+        holos:foreach( function(index)
+            holos:applyChanges(index)
+        end)
     end)
 -- add color change and make distance cheaper
         
@@ -409,38 +314,10 @@ end
         local target = getTarget()
         if not target:isZero() then 
         
-            moveVisHolo:setPos(target)
+            holos:setPos("moveVisHolo", target)
             pdController:setTarget(target, Angle())
             pdController:simulate()
         end
-        --local newMagnitude = sensorRadius - minSensorLength
-        --local sensorVectorNormal = averageSensorVector:getNormalized()
-        --sensorVectorNormal:mul(newMagnitude)
-        
-        
-        --local targetVector = holoProxy:getPos() +  sensorVectorNormal
---[[
-        chairDelta = chair:getPos() - lastPos
-        
-        targetLocalVector = getClampedVector(totalSensorVector, 20)
-        targetLocalVector = -chairDelta * 10 + targetLocalVector
-        
-        hud:addText(2, "Delta Length",chairDelta:getLength() )
-        hud:addLine(1, chair:getPos(), chair:getPos() + targetLocalVector, Color(0,0,255), "delta")
-
-        
-        hud:addText(1, "Move Length", targetLocalVector:getLength())
-        
-        --moveVisHolo:setPos(targetVector)
-        
-        --if minSensorLength < sensorRadius * 0.99 then 
-            pdController:setTarget(targetLocalVector + chair:getPos(), Angle())
-            pdController:simulate()
-        --end
-        lastVec = targetLocalVector
-        lastMag = targetLocalVector:getLength()
-        lastPos = chair:getPos()
-]]
     end)
     
 

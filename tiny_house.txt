@@ -1,0 +1,163 @@
+--@name Tiny House
+--@author Lil'Tugboat
+--@model models/props_junk/PopCan01a.mdl
+--@shared
+
+if SERVER then
+    local screen = prop.createComponent(chip():getPos() + Vector(0, 0, 0), Angle(0, 0, 0), "starfall_screen", "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl", true) 
+    screen:linkComponent(chip())
+    
+    local randomNumber = math.random(0, 100)
+
+    net.receive("request", function (len, ply)
+        net.start("screen")
+            net.writeEntity(screen)
+        net.send(ply)
+    end)
+        
+        
+        
+
+else
+    local screen
+    
+        local props = {
+        {  -- floor
+            model = "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl",
+            angles = Angle(0, 0, 0),
+            position = Vector(0, 0, 0)
+        },
+        {   -- back
+            model = "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl",
+            angles = Angle(0, 0, 90),
+            position = Vector(0, -48, 48)
+        },
+        {   --left
+            model = "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl",
+            angles = Angle(90, 0, 0),
+            position = Vector(48, 0, 48)
+        },
+        {   -- right
+            model = "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl",
+            angles = Angle(90, 0, 0),
+            position = Vector(-48, 0, 48)
+        },
+        {   -- top
+            model = "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl",
+            angles = Angle(0, 90, 0),
+            position = Vector(0, 0, 96)
+        },
+        {   -- Painting
+            model = "models/maxofs2d/gm_painting.mdl",
+            angles = Angle(0, 90, 0),
+            position = Vector(0, -48, 55)
+        },
+        {   -- Guitar
+            model = "models/props_phx/misc/fender.mdl",
+            angles = Angle(80, 0, 0),
+            position = Vector(-45.5, 20, 27)
+        },
+        { 
+            model = "models/items/item_item_crate.mdl",
+            angles = Angle(0, -180, 0),
+            position = Vector(25, -30, 0)
+        },
+        { 
+            model = "models/props_interiors/furniture_couch02a.mdl",
+            angles = Angle(0, 45, 0),
+            position = Vector(-25, 48-63, 21.5)
+        },
+    
+        {   -- upright shoe
+            model = "models/props_junk/shoe001a.mdl",
+            angles = Angle(0, 4, 0),
+            position = Vector(38, 12, 5)
+        },
+        {   -- fallen shoe
+            model = "models/props_junk/shoe001a.mdl",
+            angles = Angle(-5, -30, 75),
+            position = Vector(33, -4, 2)
+        },
+        { 
+            model = "models/props_lab/corkboard001.mdl",
+            angles = Angle(0, -180, 0),
+            position = Vector(48, 0, 48)
+        },
+        {   -- bih jug
+            model = "models/props_junk/glassjug01.mdl",
+            angles = Angle(-1, 143, 0),
+            position = Vector(1, -37, 0)
+        },
+        {   -- left
+            model = "models/props_junk/glassbottle01a.mdl",
+            angles = Angle(0, 50, 0),
+            position = Vector(32, -35, 30)
+        },
+        {   -- right
+            model = "models/props_junk/glassbottle01a.mdl",
+            angles = Angle(0, 62, 0 ),
+            position = Vector(25, -41, 30)
+        },
+        {   -- back
+            model = "models/props_junk/popcan01a.mdl",
+            angles = Angle(0, -3, 10),
+            position = Vector(19, -32, 27.2)
+        },
+        {   -- ledge
+            model = "models/props_junk/popcan01a.mdl",
+            angles = Angle(0, 97, 0),
+            position = Vector(10, -28, 27.4)
+        },
+        {   -- front left
+            model = "models/props_junk/popcan01a.mdl",
+            angles = Angle(0, 45, 0),
+            position = Vector(19, -22, 26.8)
+        },
+        {   -- fallen
+            model = "models/props_junk/popcan01a.mdl",
+            angles = Angle(30, 18, 90),
+            position = Vector(15, -36, 25.5)
+        },
+        {   -- front right
+            model = "models/props_junk/popcan01a.mdl",
+            angles = Angle(0, 45, 0),
+            position = Vector(16, -24, 26.8)
+        },
+        { 
+            model = "models/maxofs2d/companion_doll.mdl",
+            angles = Angle(0, 70, 0),
+            position = Vector(-25, -15, 16.5)
+        },
+    }
+    
+    local holos = {}
+    
+    net.start("request")
+    net.send()
+    
+    net.receive("screen", function(len)
+        screen = net.readEntity()
+        for i, p in ipairs(props) do
+            
+            local vec, ang = localToWorld(p.position, p.angles, screen:getPos(), screen:getAngles())
+        
+            
+            --p.position = p.position - Vector(6, 786, 60)
+            holos[i] = hologram.create(vec, ang, p.model)
+            holos[i]:setNoDraw(true)
+            if i > 1 then
+                holos[i]:setParent(holos[1])
+            end
+        end
+
+        hook.add("render", "roomrender", function()
+            
+            for index, holo in ipairs( holos ) do
+                holo:addEffects( 1 )
+                holo:draw()
+            end
+        end)
+    end)
+end
+
+

@@ -1,4 +1,4 @@
---@name Holomangager
+--@name Holo Mangager
 --@author Lil'Tugboat
 --@server
 
@@ -7,6 +7,7 @@ local HoloManager = class("HoloManager")
 function HoloManager:initialize()
     self.holoRecords = {}   
     self.scheduledUpdates = {} 
+    
 
     return self
 end
@@ -23,6 +24,7 @@ function HoloManager:getDefaultRecord()
             Vector(1,1,1)
         },
         mat = "",
+        parent = nil
     }
 end
  
@@ -42,6 +44,7 @@ function HoloManager:create(index, pos, ang, model)
         record["model"] = model
     end
     
+    
     self.holoRecords[index] = record
     self.scheduledUpdates[index] = {"create"}
 end
@@ -56,44 +59,82 @@ function HoloManager:create(index, pos, ang, model)
     self.scheduledUpdates[index] = {create = true}
 end
 
+local function isVectorCloseEnough(v1, v2, tolerance)
+    tolerance = tolerance or 0.001
+    return (math.abs(v1.x - v2.x) < tolerance and
+            math.abs(v1.y - v2.y) < tolerance and
+            math.abs(v1.z - v2.z) < tolerance)
+end
+
+local function isAngleCloseEnough(a1, a2, tolerance)
+    tolerance = tolerance or 0.001
+    return (math.abs(a1.pitch - a2.pitch) < tolerance and
+            math.abs(a1.yaw - a2.yaw) < tolerance and
+            math.abs(a1.roll - a2.roll) < tolerance)
+end
+
 function HoloManager:setModel(index, model)
-    self.holoRecords[index].model = model
-    self.scheduledUpdates[index]["model"] = true
+    if self.holoRecords[index].model ~= model then
+        self.holoRecords[index].model = model
+        self.scheduledUpdates[index].model = true
+    end
 end
 
 function HoloManager:setPos(index, pos)
-    self.holoRecords[index].pos = pos
-    self.scheduledUpdates[index]["pos"] = true
+    if not isVectorCloseEnough(self.holoRecords[index].pos, pos) then
+        self.holoRecords[index].pos = pos
+        self.scheduledUpdates[index].pos = true
+    end
 end
 
 function HoloManager:setAng(index, ang)
-    self.holoRecords[index].ang = ang
-    self.scheduledUpdates[index]["ang"] = true
+    if not isAngleCloseEnough(self.holoRecords[index].ang, ang) then
+        self.holoRecords[index].ang = ang
+        self.scheduledUpdates[index].ang = true
+    end
 end
 
 function HoloManager:setColor(index, color)
-    self.holoRecords[index].color = color
-    self.scheduledUpdates[index]["color"] = true
+    local currentColor = self.holoRecords[index].color
+    if not (currentColor.r == color.r and currentColor.g == color.g and currentColor.b == color.b) then
+        self.holoRecords[index].color = color
+        self.scheduledUpdates[index].color = true
+    end
 end
 
 function HoloManager:setScale(index, scale, isUnit)
-    self.holoRecords[index].scale = {isUnit or false, scale}
-    self.scheduledUpdates[index]["scale"] = true
+    isUnit = isUnit or false
+    local currentScale = self.holoRecords[index].scale
+    if currentScale[1] ~= isUnit or not isVectorCloseEnough(currentScale[2], scale) then
+        self.holoRecords[index].scale = {isUnit, scale}
+        self.scheduledUpdates[index].scale = true
+    end
 end
 
 function HoloManager:setMaterial(index, mat)
-    self.holoRecords[index].mat = mat
-    self.scheduledUpdates[index]["material"] = true
+    if self.holoRecords[index].mat ~= mat then
+        self.holoRecords[index].mat = mat
+        self.scheduledUpdates[index].material = true
+    end
+end
+
+function HoloManager:setParent(index, ent)
+    self.holoRecords[index].parent = ent
+    self.scheduledUpdates[index].parent = true
 end
 
 function HoloManager:remove(index)
-    self.scheduledUpdates[index]["remove"] = true
+    self.scheduledUpdates[index].remove = true
+end
+
+function HoloManager:getEntity(index)
+    return self.holoRecords[index].entity
 end
 
 
 function HoloManager:applyChanges(index)
     local updates = self.scheduledUpdates[index]
-    if not updates or #updates == 0 then return end -- No updates scheduled
+    if not updates then return end -- No updates scheduled
 
     local record = self.holoRecords[index]
     if not record then return end -- No record found
@@ -141,30 +182,45 @@ function HoloManager:applyChanges(index)
     if updates.material and entity.setMaterial then
         entity:setMaterial(record.mat)
     end
+    if updates.parent and entity.setParent then
+        entity:setParent(record.parent)
+    end
 
 
     self.scheduledUpdates[index] = {}
 end
-
+function HoloManager:foreach(func)
+    -- Assuming that keys in scheduledUpdates correspond to those in holoRecords
+    for index, updates in pairs(self.scheduledUpdates) do
+        local record = self.holoRecords[index]
+        if record then
+            func(index, updates, record)
+        end
+    end
+end
 
 -- EXAMPLE
+--[[
+
 local manager = HoloManager:new()
 local testIndex = 1
 
 manager:create(testIndex, chip():getPos() + Vector(0, 0, 10), Angle(0, 45, 0), "models/props_c17/oildrum001.mdl")
-manager:setPos(testIndex, chip():getPos() + Vector(20, 20, 20))
+--manager:setPos(testIndex, chip():getPos() + Vector(20, 20, 20))
+manager:applyChanges(testIndex)
 
 timer.create("!", 1, 1, function() 
-    manager:setAng(testIndex, Angle(90, 0, 0))
-    manager:setModel(testIndex, "models/holograms/cube.mdl")
-    manager:setColor(testIndex, Color(255, 0, 0))
-    manager:setScale(testIndex, Vector(2, 1, 1), false)
-    manager:setMaterial(testIndex, "models/wireframe")
+    --manager:setAng(testIndex, Angle(90, 0, 0))
+    --manager:setModel(testIndex, "models/holograms/cube.mdl")
+    --manager:setColor(testIndex, Color(255, 0, 0))
+    --manager:setScale(testIndex, Vector(2, 1, 1), false)
+    --manager:setMaterial(testIndex, "models/wireframe")
     --manager:remove(testIndex)
-    manager:applyChanges(testIndex)
+    --manager:applyChanges(testIndex)
 end)
 
-manager:applyChanges(testIndex)
+]]
+
 
 
 return HoloManager
