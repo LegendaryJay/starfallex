@@ -140,20 +140,20 @@ function HoloManager:applyChanges(index)
     if not record then return end -- No record found
     
     local entity = record.entity
-    
     if updates.remove then
-        entity:remove()
+        if isValid(entity) then
+            entity:remove()
+        end
         table.remove(self.holoRecords, index)
-        table.remove(self.scheduledUpdate, index)
+        table.remove(self.scheduledUpdates, index)
         return -- Exit after removal
     end
     if not entity then
         if updates.create then
-            entity = hologram.create(record.pos, record.ang, record.model, record.scale[2])
+            entity = hologram.create(record.pos, record.ang, record.model)
             updates.pos= false
             updates.angle = false
             updates.model = false
-            updates.scale = false
             record.entity = entity
         end
     end
@@ -200,12 +200,14 @@ function HoloManager:foreach(func)
 end
 
 -- EXAMPLE
+
 --[[
 
 local manager = HoloManager:new()
 local testIndex = 1
 
 manager:create(testIndex, chip():getPos() + Vector(0, 0, 10), Angle(0, 45, 0), "models/props_c17/oildrum001.mdl")
+manager:setScale(testIndex, Vector(2, 1, 1), true)
 --manager:setPos(testIndex, chip():getPos() + Vector(20, 20, 20))
 manager:applyChanges(testIndex)
 
@@ -216,8 +218,9 @@ timer.create("!", 1, 1, function()
     --manager:setScale(testIndex, Vector(2, 1, 1), false)
     --manager:setMaterial(testIndex, "models/wireframe")
     --manager:remove(testIndex)
-    --manager:applyChanges(testIndex)
+    manager:applyChanges(testIndex)
 end)
+
 
 ]]
 

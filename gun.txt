@@ -1,0 +1,41 @@
+--@name Gun
+--@author Tug!
+--@shared
+
+if CLIENT then -- if a client is running this
+    local lastAttackRelease = 0
+    hook.add("KeyRelease", "getKeyPress", function(ply, key) -- do stuff when they press a key
+        local currentTime = timer.curtime() -- this is the time
+        if ply != owner() -- if its not the owner
+            or key != IN_KEY.ATTACK -- or if they are not attacking
+            or not isValid( ply:getActiveWeapon()) -- or if they don't have a valid activeWeapon
+            or ply:getActiveWeapon():getClass() != "remotecontroller" -- or if they arent holding the remote control
+            or currentTime - lastAttackRelease < 0.1 -- or if it has been too soon since last firing
+        then return end                         -- just close out
+        net.start("trigger")    -- send a message to the server
+        net.send()              
+        lastAttackRelease = currentTime -- since it fired, update the last time it fired
+
+    end)
+else 
+    
+    local propmodel = "models/hunter/misc/sphere075x075.mdl"
+
+    local spawnProp = function()
+        local eyeVec = owner():getEyeAngles():getForward() -- get the angle the owner is looking 
+        local spawn = prop.create(owner():getEyePos() + eyeVec * 10, Angle(), propmodel) -- spawn a prop 10 units in front of their eye
+        
+        spawn:applyForceCenter(eyeVec * 50000) -- throw the item in the direction of their eye
+        --spawn:setNocollideAll(true)
+        spawn:setMass(10000) 
+    
+        spawn:addCollisionListener(function()
+            if spawn then spawn:remove() end
+        end)
+    
+    end
+    
+    net.receive("trigger", spawnProp) -- if you recieve a message from the server, run this command
+
+    
+end

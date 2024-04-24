@@ -1,0 +1,30 @@
+--@name Quaternion Orientation Example
+--@author Lil'Tugboat
+--@server
+
+rProp = prop.create(chip():getPos() + Vector(0, 0, 100), Angle(), "models/sprops/trans/plates/license_1.mdl", true)
+guide = prop.create(chip():getPos() + Vector(0, 0, 10), Angle(), "models/sprops/misc/axis_plane.mdl", true)
+
+helper = hologram.create(chip():getPos() + Vector(0, 0, 10), Angle(), "models/hunter/plates/plate.mdl")
+
+pos = rProp:getPos()
+
+
+
+
+hook.add("think", "rotate", function() 
+    local aimPos = guide:obbCenterW()
+    local propQ = rProp:getQuaternion()
+    
+    local direction = (aimPos - rProp:getPos()):getNormalized()
+    
+    
+    local upVector = rProp:getUp()
+    local tarQ = direction:getQuaternion(upVector)
+    
+    local deltaQ = tarQ / propQ
+    local rotationalVector = deltaQ:getRotationVector()
+    
+    rProp:setAngles(rProp:getAngles():rotateAroundAxis(rotationalVector, 1))
+    rProp:setPos(pos)
+end)

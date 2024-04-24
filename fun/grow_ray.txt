@@ -1,0 +1,85 @@
+--@name Grow Ray
+--@author Lil'Tugboat
+--@shared
+
+if CLIENT then
+    local lastAttackRelease = 0
+    hook.add("KeyRelease", "getKeyPress", function(ply, key)
+        local currentTime = timer.curtime()
+        if currentTime - lastAttackRelease < 0.1 then return end -- 0.1 seconds debounce time
+
+        if player():getActiveWeapon():getPrintName() == "Remote Control" then
+            if key == IN_KEY.ATTACK then
+                t = ply:getEyeTrace()
+                net.start("trigger")
+                    net.writeEntity(t.Entity)
+                    --net.writeVector(t.HitPos)
+                net.send()
+                lastAttackRelease = currentTime
+
+            elseif key == IN_KEY.ATTACK2 then
+                net.start("halt")
+                net.send()
+                lastAttackRelease = currentTime
+            end
+        end
+    end)
+else 
+
+    local holos = {}
+    local growAmount = {}
+    local holoGrowInterval = 0.01
+    local allowGrow = {}
+    
+    function startGrow(id, ent)
+        growAmount[id] = 1
+        holo = holos[id]
+        if not isValid( holo)then
+            holo = hologram.create(Vector(), Angle(), "models/hunter/blocks/cube025x025x025.mdl")
+            holos[id] = holo
+        end
+        holo:setPos(ent:getPos())
+        holo:setAngles(ent:getAngles())
+        holo:setMaterial(ent:getMaterial())
+        holo:setSkin(ent:getSkin())
+        holo:setColor(ent:getColor())
+        holo:setModel(ent:getModel())
+        holo:setParent(ent)
+    end
+    
+    net.receive("trigger", function(len, ply) 
+        local ent = net.readEntity()
+        if isValid(ent) then
+            allowGrow[ply:getUserID()] = 1
+            startGrow(ply:getUserID(), ent)
+        end
+    end)
+    net.receive("halt", function(len, ply)
+        local id = ply:getUserID()
+        allowGrow[id] = allowGrow[id] - 1
+    end)
+    
+    hook.add("think", "grow", function()
+        local removes = {}
+        for id, grow in pairs(allowGrow) do
+            if not isValid(holos[id]) then
+                table.insert(removes, id)
+                continue
+            end
+            if grow == 1 then
+                growAmount[id] = growAmount[id] + holoGrowInterval
+                local scale = growAmount[id]
+                holos[id]:setScale(Vector(scale, scale, scale))
+                local parent = holos[id]:getParent()
+                holos[id]:setPos(parent:localToWorld(-parent:obbCenter()* (scale - 1)))
+            elseif grow <= -1 then
+                table.insert(removes, id)
+                holos[id]:setScale(Vector())
+            end
+            
+        end
+        for _, value in pairs(removes) do
+            table.remove(allowGrow,value)
+        end
+    end)
+end
