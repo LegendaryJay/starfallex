@@ -1,0 +1,47 @@
+--@name Bin Manager Class
+--@author Lil'Tugboat
+--@server
+
+local BinManager = class("BinManager")
+
+function BinManager:initialize(binCountSize, binDegreeSize)
+    self.binCountSize = binCountSize  
+    self.binDegreeSize = binDegreeSize 
+    self.bins = {}
+
+    return self
+end
+
+function BinManager:add(binKey)
+    self.bins[binKey] = (self.bins[binKey] or 0) + 1 
+end
+
+function BinManager:remove(binKey)
+    self.bins[binKey] = (self.bins[binKey] or 0) - 1
+    if self.bins[binKey] < 0 then
+        throw("removed from empty bin")
+    end
+end
+
+function BinManager:move(fromBinKey, toBinKey)
+    if fromBinKey == toBinKey then return end
+    self:remove(fromBinKey)
+    self:add(toBinKey)
+end
+
+
+function BinManager:getBinName(angle)
+    local pitch = angle[1]
+    pitch = math.floor(pitch / self.binDegreeSize) * self.binDegreeSize
+    
+    local yaw = angle[2]
+    yaw = math.floor(yaw / self.binDegreeSize) * self.binDegreeSize
+    
+    return pitch .. "," .. yaw
+end
+
+function BinManager:isFull(binName)
+    return (self.bins[binName] or 0) >= self.binCountSize
+end
+
+return BinManager

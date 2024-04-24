@@ -1,0 +1,53 @@
+--@name Arm Manager Class
+--@author Lil'Tugboat
+--@server
+
+local SlimeArmManager = class("SlimeArmManager")
+function SlimeArmManager:initialize(onCreate, onUpdate, onRemove)
+    self.arms = {}
+    
+    if not onCreate then onCreate = function()end end
+    if not onUpdate then onUpdate = function()end end
+    if not onRemove then onRemove = function()end end
+    
+    self.onAdd = onAdd
+    self.onUpdate = onUpdate
+    self.onRemove = onRemove
+    
+    return self
+end
+ 
+function SlimeArmManager:update(key, position, entity)
+    local arm = arms[key]
+    if not arm then return false end
+    
+    if entity then
+        arm.hasEntity = true
+        arm.attachedEntity = entity
+        arm.localEntityVector = entity:worldToLocal(position)
+    else
+        arm.hasEntity = false
+        arm.attachedEntity = nil
+        arm.localEntityVector = nil
+    end 
+    self.onUpdate(key, arm)
+    return true
+end
+
+function SlimeArmManager:create()
+        local arm = {}
+        local key = table.insert(self.arms, arm) 
+        self.update(key)
+        self.onUpdate(key, arm)
+        return arm
+end    
+
+function SlimeArmManager:remove(key)
+    self.onRemove(key, self.arms[key])
+    local remove = table.remove(self.arms, key)
+    if remove then return true end
+    return false
+    
+end
+
+return SlimeArmManager
