@@ -1,0 +1,42 @@
+--@name Slime Movement Class
+--@author Lil'Tugboat
+--@shared
+    
+    
+local MovementManager = class("MovementManager")
+
+function MovementManager:initialize(entity)
+    self.movedEntity = entity
+    self.rotationVector = Vector()
+    self.forceVector = Vector()
+
+    return self
+end
+
+function MovementManager:reset()
+    self.rotationVector = Vector()
+    self.forceVector = Vector()
+end
+
+function MovementManager:setRotationVector(vector)
+    self.rotationVector = vector
+end
+
+function MovementManager:setForceVector(vector)
+    self.forceVector = vector
+end
+
+function MovementManager:addForceVector(vector)
+    self.forceVector = self.rotationVector + vector
+end
+
+function MovementManager:calculateMovement()
+    local return vector = 
+    self
+    local function getTarget() 
+        if targetVecTotal:isZero() then return Vector() end
+        targetLength = self.forceVector:getLength()
+        targetNormal = targetVector / targetLength
+        targetVector = targetNormal * math.min(50, targetLength)
+        return (targetVecTotal ) * 100 - chair:getVelocity() * 2
+    end

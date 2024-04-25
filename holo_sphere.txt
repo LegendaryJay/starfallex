@@ -2,61 +2,65 @@
 --@author Lil'Tugboat
 --@server
 
-local holoCount = 50
 local radial = 300
-local delayTime = 0.1 
+local binDegreeSize =  30  -- Degree size for bins
+local parent = chip()
+local usedBins = {}  -- Table to track used bins
 
-local Parent = chip()
-local rotateI = 0
+function getBinName(angle)
 
-local holoProxy
-
-local function placeHolograms()
-    local goldenAngle = 2.399963229728653
-    local offset = 2 / holoCount
+    local pitch = angle[1] % 180
+    pitch = math.floor(pitch / binDegreeSize)
     
-    holoProxy = holograms.create(
-            Parent:obbCenterW(),
-            Parent:getAngles(),
-            "models/sprops/misc/axis_plane.mdl",
-            Vector(1, 1, 1)
-        )
-        holoProxy:setParent(Parent)
+    local yaw = angle[2] % 360
+    yaw = math.floor(yaw / binDegreeSize)
     
-    for index = 1, holoCount, 1 do
-        local y = ((index - 1) * offset - 1) + offset / 2
-        local r = math.sqrt(1 - y * y)
-        local phi = ((index - 1) % holoCount) * goldenAngle
-        
-        local localVector = Vector(
-            math.cos(phi) * r,
-            math.sin(phi) * r,
-            y
-        )
-        
-        localVector:mul(radial)
-        
-        local holo = holograms.create(
-            Parent:localToWorld(localVector),
-            Parent:localToWorldAngles(localVector:getAngle()),
-            "models/sprops/misc/cube_from_x.mdl",
-            Vector(0.01, 1, 1)
-        )
-        --holo:setColor(Color(360 * index / holoCount):hsvToRGB())
-        holo:setParent(holoProxy)
-
-        --coroutine.wait(delayTime)
-
-    end
+    return pitch, yaw
 end
 
+local tableLength = 0
+local function placeHolograms()
+    local delayTime = 0.1  -- Delay time between placing each hologram
+
+    local holoProxy = holograms.create(
+        parent:obbCenterW(),
+        parent:getAngles(),
+        "models/sprops/misc/axis_plane.mdl",
+        Vector(1, 1, 1)
+    )
+    holoProxy:setParent(parent)
+    
+    for pitch =0, 360, 1 do
+        for yaw = 0, 360, 1 do
+            local angle = Angle(pitch, yaw, 0)
+            local outP, outY = getBinName(angle)
+            local binName = outP .. "," .. outY
+            if not usedBins[binName] then
+                tableLength = tableLength + 1
+                usedBins[binName] = true
+                
+                local angle = Angle(outP * binDegreeSize + binDegreeSize * 0.5 + 90, outY * binDegreeSize+ binDegreeSize * 0.5, 0)
+                localVector = angle:getForward()
+                
+                local holo = holograms.create(
+                    parent:getPos() + localVector * (100 + tableLength * 1 ), 
+                    angle,
+                    "models/holograms/cube.mdl",
+                    Vector(0.01, 1, 1)
+                )
+                holo:setParent(holoProxy)
+
+                coroutine.yield(delayTime)  -- Delay for visual effect and to reduce load
+            end
+        end
+    end
+    printTable(usedBins)
+end
 
 local co = coroutine.create(placeHolograms)
 coroutine.resume(co)
-hook.add("think", "manageHoloCountHook", function ()
-    holoProxy:setAngles(Parent:localToWorldAngles(Angle(0, rotateI, 0)))
-    rotateI = rotateI + 1
+hook.add("think", "manageHoloPlacementHook", function ()
     if coroutine.status(co) ~= "dead" then
-            coroutine.resume(co)
+        coroutine.resume(co)
     end
 end)

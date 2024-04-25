@@ -1,0 +1,50 @@
+--@name Slime Movement Class
+--@author Lil'Tugboat
+--@shared
+    
+    
+local MovementManager = class("MovementManager")
+
+function MovementManager:initialize(entity)
+    self.movedEntity = entity
+    self.rotationVector = Vector()
+    self.forceVector = Vector()
+
+    return self
+end
+
+function MovementManager:reset()
+    self.rotationVector = Vector()
+    self.forceVector = Vector()
+end
+
+function MovementManager:setRotationVector(vector)
+    self.rotationVector = vector
+end
+
+function MovementManager:setForceVector(vector)
+    self.forceVector = vector
+end
+
+function MovementManager:addForceVector(vector)
+    self.forceVector = self.rotationVector + vector
+end
+
+function MovementManager:calculateForceVector(ForceAmp, StableAmp)
+    if self.forceVector:isZero() then return Vector() end
+        local length = self.forceVector:getLength()
+        local normal = self.forceVector / length
+        local limitedVector = normal * math.min(30, length)
+        
+        return limitedVector * self.movedEntity:getMass() * ForceAmp - self.movedEntity:getVelocity() * StableAmp
+    end
+end
+
+function MovementManager:calculateTorque()
+
+end
+
+function MovementManager:simulate()
+    
+
+end

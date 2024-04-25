@@ -1,4 +1,4 @@
---@name Slime Vehicle - Working Stickiness
+--@name Slime Vehicle - Last Working
 --@author Lil'Tugboat
 --@include libs/criticalpd.txt
 --@include libs/holo_manager.txt
@@ -10,7 +10,7 @@
 if SERVER then
 
     
-    local translationGain = 1000 -- Set to desired stiffness
+    local translationGain = 500 -- Set to desired stiffness
     local rotationGain = 500 -- Set to desired rotational stiffness
     
     -- Defines "springs" of the slime
@@ -20,8 +20,9 @@ if SERVER then
     
     -- sensor limiter
     local sensorCount = 30 -- how many sensor attempts there will be
-    local binDegreeSize = 45 -- how wide in degrees the longitude & latitude are in sensor array
+    local binDegreeSize = 40 -- how wide in degrees the longitude & latitude are in sensor array
     local binCountSize = 1 -- how many sensors can fit between longitude & latitude lines
+    local ArmBinCountSize = 3 -- how many arms can fit between longitude & latitude lines
 
     ---------------------------------------------------------
     
@@ -39,8 +40,6 @@ if SERVER then
     local holos = HoloManager:new()
     
     local ArmManager = require("slime/arm_manager_class.txt")
-    local arms = ArmManager:new() --(onCreate, onUpdate, onRemove)
-    
     
     local BinMangager = require("slime/bin_manager_class.txt")
     local bins = BinMangager:new(binCountSize, binDegreeSize)
@@ -58,7 +57,8 @@ if SERVER then
     end
     
     //Spawn things
-    local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/sprops/geometry/sphere_42.mdl", false)
+    --local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/sprops/geometry/sphere_42.mdl", false)
+    local chair = prop.createSeat(chip():localToWorld(Vector(0, 0, 100)), Angle(0, 0, 0), "models/props_c17/canister02a.mdl", false)
     local chairPos = chair:getMassCenterW()
     local chairAng = chair:getAngles()
     
@@ -158,46 +158,76 @@ if SERVER then
         return targetVecTotal / targetVecCount
     end
     
+    
     local unusedHolos = {}
     local holoItt = 1
     
-    local function createFoot(binName, entity, position)
-        local foot = {
-            binName = binName,
-            position = position
-        }
+    
+    function onArmCreate(key, arm)
         if #unusedHolos == 0 then
-            foot.holo = holoItt
+            arm.holo = holoItt
             holoItt = holoItt + 1
-            holos:create(foot.holo)
-            holos:setModel(foot.holo, "models/holograms/hq_icosphere.mdl")
-            holos:setScale(foot.holo, Vector(1,1,1))
+            holos:create(arm.holo)
+            holos:setModel(arm.holo, "models/holograms/hq_icosphere.mdl")
+            holos:setScale(arm.holo, Vector(1,1,1))
         else
-            foot.holo = table.remove(unusedHolos, #unusedHolos)
+            arm.holo = table.remove(unusedHolos, #unusedHolos)
+            holos:setParent(arm.holo)
         end
-        
-        if entity then
-            foot.attachedEntity = entity
-            foot.localEntityVector = entity:worldToLocal(position)
+    end
+    
+    function onArmUpdate(key, arm)
+        local vector = (arm.position - chairPos)
+        local angle = vector:getAngle()
+        arm.length = vector:getLength()
+        arm.direction = vector / arm.length
+        local binName = bins:getBinName(angle)
+        if not arm.binName then
+            bins:add(binName)
         else 
-            foot.attachedEntity = nil
-            foot.localEntityVector = nil
-        end
-        bins:add(binName)  
-        table.insert(feet, foot) 
+            bins:move(arm.binName, binName)
+        end   
+        arm.binName = binName
     end
     
-    local function removeFoot(key)
-        foot = feet[key]
-        holos:setScale(foot.holo, Vector(0,0,0))
-        bins:remove(foot.binName)
-        --print(2)
-        table.insert(unusedHolos, foot.holo)
-        --print(3)
-        table.remove(feet, key)
-    end
+    function onArmRemove(key, arm)
+        bins:remove(arm.binName)
+        holos:setScale(arm.holo, Vector(0,0,0))
+        holos:setPos(arm.holo, chairPos)
+        holos:setParent(arm.holo, chair)
+        table.insert(unusedHolos, arm.holo)
+    end 
     
+    local arms = ArmManager:new(onArmCreate, onArmUpdate, onArmRemove)
+    
+  
     local function sense()
+        arms:foreach(function(key, arm) -- check all the arms
+
+            local direction = arm.position - chairPos
+            
+            local binName = bins:getBinName(direction:getAngle())
+            if binName != arm.binName and bins:isFull(binName, ArmBinCountSize) then 
+                arms:remove(key)
+                return 
+            end
+            
+            local tracer = localTrace(arm.position - chairPos)
+            local entity = nil 
+            
+            if not tracer.Hit then
+                arms:remove(key) -- remove it if it didnt hit anything
+                return
+            end
+            
+            if tracer.Entity then
+                entity = tracer.Entity -- check for entity
+            end
+            
+            arms:update(key, tracer.HitPos, entity) -- update
+            
+        end)
+        
         remainingSensors = sensorCount - #feet
         for i = 1, remainingSensors, 1 do
             -- set direction
@@ -212,69 +242,69 @@ if SERVER then
             local tracer = localTrace(direction)
             if not tracer.Hit then return end
     
-            -- create foot
-            createFoot(binName, tracer.Entity, tracer.HitPos)
-            
+            -- create arm
+            arms:create(tracer.HitPos, tracer.Entity) 
         end
     end
 
-    local function footInterations()
+    local function armInteractions()
         local locationSum = Vector()
         local locationSumCount = 0
-        for key, foot in pairs(feet) do
-            local vector = foot.position - chairPos
-            local dist = vector:getLength()
-            local direction = vector/dist
-            
-            if isValid(foot.attachedEntity) then
-                foot.position = foot.attachedEntity:localToWorld(foot.localEntityVector)
-            end
-            
-            
-            
+        
+        arms:foreach(function(key, arm)         
             local weight = 1
             local target = chairPos
             local color = Color(255,255,255)
             local scale = 0.3
+            
+            local dist = arm.length
+        
             if dist < targetRadius then
+                arm.delay = 0
                 -- Too Close!
-                target = chairPos + direction * (dist - targetRadius)
-                weight = 5
+                target = chairPos + arm.direction * (dist - targetRadius)
+                weight = 1
                 color = interpolateColor(dist/targetRadius, Color(255,0,0), Color(255,255,255))
                 --sscale = 0
             elseif dist < (targetRadius + deadzoneRadius)  then
+                arm.delay = 0
                 -- perfect!
                 --target = chairPos
                 --weight = 1
                 --color = Color(255,255,255) 
                 --scale = 0
             elseif dist < (targetRadius + deadzoneRadius + stickyRadius) then
+                arm.delay = 0
                 -- too far! (pull back)
-                target = chairPos + direction * (dist - targetRadius - deadzoneRadius)
-                weight = 2
+                target = chairPos + arm.direction * (dist - targetRadius - deadzoneRadius)
                 local percentAway = (dist - targetRadius - deadzoneRadius)/stickyRadius
+                weight = percentAway * 2
                 color = interpolateColor(percentAway,Color(255,255,255), Color(0,255,0))
                 --scale = 0.1
-            else  
-                removeFoot(key)
-                continue
+            else
+                arm.delay = arm.delay + 1
+                if not arm.hasEntity or arm.delay > 100 then 
+                    target = chairPos + arm.direction * (dist - targetRadius - deadzoneRadius)
+                    local percentAway = (dist - targetRadius - deadzoneRadius)/stickyRadius
+                    weight = percentAway * 10
+                    color = interpolateColor(percentAway,Color(255,255,255), Color(0,255,0))
+                    
+                    arms:remove(key)
+                    return
+                end 
             end
-            if isValid(foot.attachedEntity) and foot.attachedEntity:getClass() == "player" then
-                weight = 100
-            end
-            
             setTarget(target, weight )
-            holos:setColor(foot.holo, color) 
-            holos:setScale(foot.holo, Vector(scale,scale,scale))
-            holos:setPos(foot.holo, foot.position)
+            holos:setColor(arm.holo, color) 
+            holos:setScale(arm.holo, Vector(scale,scale,scale))
+            holos:setPos(arm.holo, arm.position)
             
-            locationSum = locationSum + foot.position
+            locationSum = locationSum + arm.position
             locationSumCount = locationSumCount + 1
-        end
+        end)
         local direction
         local angle
         if locationSumCount > 0 then
-            local target = locationSum/#feet
+            local target = locationSum/#arms.arms
             local vector = target - chairPos
             local direction = vector:getNormalized()
             local axis = direction:cross(chair:getUp())
@@ -286,8 +316,7 @@ if SERVER then
         
         pdController:setTargetAng(angle) 
     end
-
-                    
+                        
     
     --local sense = useSensors()
     hook.add("think", "sensors", function ()
@@ -295,7 +324,7 @@ if SERVER then
         chairAng = chair:getAngles()
         sense()
         resetTarget()
-        footInterations()
+        armInteractions()
     end)
     
     --movements

@@ -10,7 +10,7 @@ function SlimeArmManager:initialize(onCreate, onUpdate, onRemove)
     if not onUpdate then onUpdate = function()end end
     if not onRemove then onRemove = function()end end
     
-    self.onAdd = onAdd
+    self.onCreate = onCreate
     self.onUpdate = onUpdate
     self.onRemove = onRemove
     
@@ -18,27 +18,32 @@ function SlimeArmManager:initialize(onCreate, onUpdate, onRemove)
 end
  
 function SlimeArmManager:update(key, position, entity)
-    local arm = arms[key]
+    local arm = self.arms[key]
     if not arm then return false end
     
-    if entity then
+    if isValid(entity) then
         arm.hasEntity = true
-        arm.attachedEntity = entity
-        arm.localEntityVector = entity:worldToLocal(position)
+        if entity == arm.attachedEntity then
+            position = entity:localToWorld(arm.localEntityVector)
+        else
+            arm.attachedEntity = entity
+            arm.localEntityVector = entity:worldToLocal(position)
+        end
     else
         arm.hasEntity = false
         arm.attachedEntity = nil
         arm.localEntityVector = nil
     end 
+    arm.position = position
     self.onUpdate(key, arm)
-    return true
+    return arm
 end
 
-function SlimeArmManager:create()
+function SlimeArmManager:create(position, entity)
         local arm = {}
         local key = table.insert(self.arms, arm) 
-        self.update(key)
-        self.onUpdate(key, arm)
+        self:update(key, position, entity)
+        self.onCreate(key, arm)
         return arm
 end    
 
@@ -47,7 +52,15 @@ function SlimeArmManager:remove(key)
     local remove = table.remove(self.arms, key)
     if remove then return true end
     return false
-    
+end
+
+function SlimeArmManager:foreach(func)
+    for key, value in pairs(self.arms) do
+        func(key, value)
+    end
+end
+function SlimeArmManager:getArm(key)
+    return self.arms[key]
 end
 
 return SlimeArmManager

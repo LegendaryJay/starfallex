@@ -13,7 +13,8 @@ function BinManager:initialize(binCountSize, binDegreeSize)
 end
 
 function BinManager:add(binKey)
-    self.bins[binKey] = (self.bins[binKey] or 0) + 1 
+    self.bins[binKey] = (self.bins[binKey] or 0) + 1
+    return self.bins[binKey]
 end
 
 function BinManager:remove(binKey)
@@ -21,27 +22,30 @@ function BinManager:remove(binKey)
     if self.bins[binKey] < 0 then
         throw("removed from empty bin")
     end
+    return self.bins[binKey]
 end
 
 function BinManager:move(fromBinKey, toBinKey)
     if fromBinKey == toBinKey then return end
     self:remove(fromBinKey)
     self:add(toBinKey)
+    return self.bins[binKey]
 end
 
 
 function BinManager:getBinName(angle)
-    local pitch = angle[1]
-    pitch = math.floor(pitch / self.binDegreeSize) * self.binDegreeSize
-    
-    local yaw = angle[2]
-    yaw = math.floor(yaw / self.binDegreeSize) * self.binDegreeSize
+    local pitch = angle[1] % 180
+    local yaw = angle[2] % 360
+
+    pitch = math.floor(pitch / self.binDegreeSize)
+    yaw = math.floor(yaw / self.binDegreeSize)
     
     return pitch .. "," .. yaw
 end
 
-function BinManager:isFull(binName)
-    return (self.bins[binName] or 0) >= self.binCountSize
+function BinManager:isFull(binName, max)
+    if not max then max = self.binCountSize end
+    return (self.bins[binName] or 0) >= max
 end
 
 return BinManager
