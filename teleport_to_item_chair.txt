@@ -1,0 +1,38 @@
+--@name Untitled
+--@author Lil'Tugboat
+--@server
+
+
+    items = find.all(function(entity)
+        if (not isValid(entity:getOwner()) or not entity:getOwner():isPlayer())  and entity:getClass() == "prop_physics" and entity:getModel() != "models/sa-mon/upa.mdl" then
+         return true
+        end
+     end)    
+--[[
+    for key, item in pairs(items) do
+        item:setPos(chip():getPos() + Vector(0,0,10 * key))
+    end
+]]
+    
+    
+    
+    local chair = prop.createSeat(chip():getPos() + chip():getUp() * 20, Angle(), "models/props_phx/construct/metal_wire1x1x1.mdl", true)
+    chair:setNocollideAll(true)
+   
+    local driver
+    local function set_driver(ply, vehicle, role)
+        if vehicle ~= chair then return end
+        item = table.remove(items, #items)
+        chair:setPos(item:obbCenterW() - chair:obbCenter())
+        --chair:ejectDriver()
+    end
+    -- Attach the `set_driver` function to the appropriate hooks
+    hook.add("PlayerEnteredVehicle", "SetDriver", set_driver)
+    
+    hook.add("think", "warp", function()
+        if ((owner():getPos() - chip():getPos()):getLength() < 30 ) then
+            chair:setPos(chip():obbCenterW() - chair:obbCenter())
+        end
+    
+    end)
+    

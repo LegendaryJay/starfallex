@@ -17,6 +17,7 @@ if SERVER then
     local targetRadius = 50 -- Layer 1: slime pushes away from things this close
     local deadzoneRadius = 10 -- Layer 2" slime likes this area
     local stickyRadius = 20 -- Layer 3: slime reaches for things here
+    
     local stickDelay = 10 -- how many ticks it sticks to a target
     
     -- sensor limiter

@@ -1,0 +1,148 @@
+--@name testing Slime Reach
+--@author Lil'Tugboat
+--@server
+
+local sphereSize = Vector(50,50,50)
+local sphereRadiusCubed = Vector(50,50,50)
+
+
+-- Constants for radius calculations
+local targetRadius = 30
+local deadzoneRadius = 5
+local stickyRadius = 10
+
+local totalSensorLength = targetRadius + deadzoneRadius + stickyRadius
+
+-- Initial setup of environment
+local center = chip():getPos() + Vector(0, 0, 100)
+local cubedSize = totalSensorLength^3
+local cubedTargetSize = targetRadius^3
+
+-- Hologram initial setup
+local function createHolo(center, scale, color, model, angle, mat)
+    local holo = hologram.create(center, angle, model)
+    holo:setScale(Vector(scale, scale, scale))
+    holo:setColor(color)
+    holo:setMaterial(mat or "")
+    return holo
+end
+
+local sphereHolo = createHolo(center, 1, Color(255, 200, 200, 50), "models/sprops/geometry/sphere_144.mdl", Angle(), "WTP/paint_1")
+local cubeHolo = createHolo(center, -1, Color(0, 255, 0, 50), "models/sprops/geometry/sphere_144.mdl", Angle(), "models/wireframe")
+
+local helper = prop.create(center + Vector(0, 0, 5), Angle(), "models/holograms/cube.mdl", 1)
+local sizer = prop.create(center + Vector(1, 1, 1) * totalSensorLength, Angle(), "models/props_phx/gears/bevel9.mdl", 1)
+
+-- Function to update the size of holograms
+local function updateSize(sizeVec)
+    sizeVec = Vector(math.abs(sizeVec.x), math.abs(sizeVec.y), math.abs(sizeVec.z)) * 0.5
+    local scale = (cubedSize / (sizeVec.x * sizeVec.y * sizeVec.z))^(1/3)
+    local scale2 = (cubedTargetSize / (sizeVec.x * sizeVec.y * sizeVec.z))^(1/3)
+    sphereSize = sizeVec * scale * 2
+    sphereTargetSize = sizeVec * scale2 
+    sphereRadiusCubed = Vector(sphereSize[1] ^ 2, sphereSize[2] ^ 2, sphereSize[3] ^ 2)
+    sphereHolo:setSize(sphereSize* 2)
+    cubeHolo:setSize(-sphereTargetSize)
+end
+
+function calculateLengthToSurface(direction)
+    local xRadius = sphereRadiusCubed[1]
+    local yRadius = sphereRadiusCubed[2]
+    local zRadius = sphereRadiusCubed[3]
+    
+    local xDir = direction[1]^2
+    local yDir = direction[2]^2
+    local zDir = direction[3]^2
+    // Calculate the coefficients of the quadratic equation
+    local a = xDir / xRadius + yDir / yRadius + zDir / zRadius;
+    local b = 2 * (direction[1] * direction[2] / xRadius + direction[2] * direction[3] / yRadius + direction[1] * direction[3] / zRadius);
+    local c = xDir / xRadius + yDir / yRadius + zDir / zRadius - 1;
+
+    // Calculate the discriminant
+    local discriminant = b^2 - 4 * a * c;
+
+    // Calculate the solutions for t (length to the surface)
+    local t1 = (-b + math.sqrt(discriminant)) / (2 * a);
+    local t2 = (-b - math.sqrt(discriminant)) / (2 * a);
+
+    // Return the smallest positive solution
+    return math.min(t1, t2);
+end
+
+
+-- Function to update holograms based on the "arm" state
+local function updateHolo(arm)
+    local length = (math.abs(calculateLengthToSurface(arm.normal)))
+    
+    local repel = targetRadius + math.max(0, arm.dot) * stickyRadius * 1
+    local dead = deadzoneRadius
+    local stick = stickyRadius - math.max(0, arm.dot) * stickyRadius * 1
+    
+    local totalRadii = repel + dead + stick
+    
+    -- Normalizing radii
+    repel = repel / totalRadii
+    dead = dead / totalRadii
+    stick = stick / totalRadii
+
+    
+    local repelSize = repel * length 
+    local deadSize = dead * length 
+    local stickSize = stick * length
+
+    arm.repelHolo:setSize(Vector(repelSize, 1, 1))
+    arm.deadHolo:setSize(Vector(1, 1, 1))
+    arm.pullHolo:setSize(Vector(stickSize, 1, 1))
+
+    arm.repelHolo:setPos(center + arm.normal * (repelSize * 0.5))
+    arm.deadHolo:setPos(center + arm.normal * (repelSize + deadSize * 0.5))
+    arm.pullHolo:setPos(center + arm.normal * (repelSize + deadSize + stickSize * 0.5))
+end
+
+-- Generate hologram "arms" in all cardinal directions
+local arms = {}
+local index = 1
+
+for x = -1, 1, 1 do
+    for y = -1, 1, 1 do
+        for z = -1, 1, 1 do
+            local vector = Vector(x, y, z)
+            if vector:isZero() then
+                continue
+            end
+            vector:normalize()
+            local angle = vector:getAngle()
+
+            local repelHolo = createHolo(center + vector * 10, 0.3, Color(255, 0, 0), "models/holograms/cube.mdl", angle)
+            local deadHolo = createHolo(center + vector * 15, 0.3, Color(255, 255, 255), "models/holograms/cube.mdl", angle)
+            local pullHolo = createHolo(center + vector * 20, 0.3, Color(0, 255, 0), "models/holograms/cube.mdl", angle)
+
+            arms[index] = {
+                normal = vector,
+                repelHolo = repelHolo,
+                deadHolo = deadHolo,
+                pullHolo = pullHolo
+            }
+            index = index + 1
+        end
+    end
+end
+
+function updateOnThink()
+    for key, arm in pairs(arms) do
+        arm.dot = arm.normal:dot(((center - helper:getPos()):getNormalized()))
+        updateHolo(arm)
+    end
+
+    local sizeVec = (sizer:getPos() - center):getNormalized()
+    sizeVec = Vector(math.abs(sizeVec.x), math.abs(sizeVec.y), math.abs(sizeVec.z))
+    updateSize(sizeVec)
+end
+updateOnThink()
+-- Update holograms on each server tick
+hook.add("think", "holos", function()
+    if helper:isPlayerHolding() or sizer:isPlayerHolding()  then 
+        updateOnThink()
+    end
+end)
+

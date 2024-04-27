@@ -1,0 +1,85 @@
+--@name Stencil House
+--@author Name
+--@shared
+
+if CLIENT then
+    if player() != owner() then return end
+    enableHud(nil, true)
+    
+    local holos = {}
+    
+    function checkEntity(entity)
+        return entity:isValid() and isValid(entity:getOwner()) and entity:getOwner():isPlayer() and entity:getClass() == "prop_physics"
+    end
+    
+    function duplicateEntity(entity)
+        holo = hologram.create(entity:getPos(), entity:getAngles(), entity:getModel())
+        holo:setParent(entity)
+        holo:setColor(Color(0,0,0,0))
+        table.insert(holos, holo)
+        
+    end
+    
+    items = find.all(checkEntity)
+    
+    for key, item in pairs(items) do
+        duplicateEntity(item)
+    end
+    
+    hook.add("OnEntityCreated","entitySpawned", function(ent)
+        if checkEntity(ent) then
+            duplicateEntity(ent)
+        end
+    end)
+    
+    function wallhack()
+        -- Enable stencil testing and set stencil buffer parameters
+        render.setStencilWriteMask(0xFF)              -- Set which bits of the stencil buffer can be written
+        render.setStencilTestMask(0xFF)               -- Set which bits are compared during the stencil test
+        render.setStencilEnable(true)                 -- Enable stencil testing
+        
+        -- Configure stencil operations to replace stencil values where entities are drawn
+        render.setStencilCompareFunction(STENCIL.ALWAYS) -- Set stencil test to always pass
+        render.setStencilZFailOperation(STENCIL.REPLACE) -- Replace stencil value with the reference value if depth test fails
+        render.setStencilReferenceValue(1)            -- Set the reference value for replacing stencil values
+        
+        -- Clear the stencil buffer to reset values
+        render.clearStencil()                         -- Clear the stencil buffer
+        
+        -- Draw entities; each draw operation modifies the stencil buffer due to REPLACE operation set above
+        for _, holo in ipairs(holos) do
+            holo:draw()                                -- Draw each entity; modifies the stencil buffer
+        end
+        
+        -- Use stencil test to limit buffer clearing to specific areas
+        render.setStencilCompareFunction(STENCIL.EQUAL) -- Change stencil function to check for equality with the reference value
+        render.clearBuffersObeyStencil(128, 0, 255, 255, false) -- Clear frame buffer in areas where stencil value equals 1 (purple color)
+    end
+    
+
+    local flashlight = false
+    hook.add("think", "ChangeMode", function()
+        if player():isFlashlightOn() == flashlight then return end
+        flashlight = !flashlight
+        if flashlight then
+            hook.add("PostDrawOpaqueRenderables", "DrawProps", wallhack)
+        else
+            hook.remove("PostDrawOpaqueRenderables", "DrawProps")
+        end
+    end)
+    
+    
+    local lastAttackRelease = 0
+    hook.add("KeyRelease", "getKeyPress", function(ply, key)
+        local currentTime = timer.curtime()
+        if currentTime - lastAttackRelease < 0.1 then return end -- 0.1 seconds debounce time
+
+        if player():getActiveWeapon():getPrintName() == "Remote Control" then
+            if key == IN_KEY.ATTACK then
+                t = ply:getEyeTrace()
+                removeItem(t.Entity)       
+                lastAttackRelease = currentTime
+            end
+        end
+    end)
+end

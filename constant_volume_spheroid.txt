@@ -1,0 +1,41 @@
+--@name Holographic Size Adjustment
+--@author Lil'Tugboat
+--@server
+
+local totalSensorLength = 80
+local center = chip():getPos() + Vector(0, 0, 100)
+
+local sphereHolo = hologram.create(center, Angle(), "models/sprops/geometry/sphere_144.mdl")
+sphereHolo:setColor(Color(255, 200, 200))
+
+local cubeHolo = hologram.create(center, Angle(), "models/sprops/cuboids/non_set/cube_42x42x42.mdl")
+cubeHolo:setColor(Color(200, 255, 200))
+cubeHolo:setMaterial("models/wireframe")
+
+local sizer = prop.create(center + Vector(0, 0, 5), Angle(), "models/props_phx/gears/bevel9.mdl", 1)
+
+local function updateSize(size)
+    size = Vector(math.abs(size[1]), math.abs(size[2]), math.abs(size[3]))
+    local scale = 1 / size:getLength()
+    size = size * scale
+
+
+    sphereHolo:setSize(size * totalSensorLength * 2 )
+    cubeHolo:setSize(size * totalSensorLength  * 2 )
+    
+    sphereSize = sphereHolo:obbSize()
+end
+
+hook.add("think", "holosSizeUpdate", function()
+    local sizeVec = (sizer:getPos() - center) * 2
+    -- Ensure no component of sizeNormal is less than a small epsilon value to avoid near-zero/negative dimensions
+    sizeVec[1] = math.abs(sizeVec[1])
+    sizeVec[2] = math.abs(sizeVec[2])
+    sizeVec[3] = math.abs(sizeVec[3])
+
+    local newSize = sizeVec 
+    updateSize(sizeVec)
+ 
+end)
+
+

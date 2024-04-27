@@ -1,0 +1,85 @@
+--@name Personal Build Area
+--@author Lil'Tugboat
+--@shared
+
+
+
+if SERVER then
+    local chip = chip()
+    
+    local propMdl = "models/sprops/rectangles/size_10/rect_480x480x3.mdl"
+    tempHolo = hologram.create(Vector(), Angle(), propMdl)
+    local tempBoxSize = tempHolo:obbSize()
+    boxSize = math.max(tempBoxSize[1],tempBoxSize[2],tempBoxSize[3]) * 0.5
+    boxCenter = tempHolo:obbCenter()
+    tempHolo:remove()
+
+
+    local template = {
+        front = {ang = Angle(0, -90, 90), vec = Vector(1, 0,1)},
+        right = {ang = Angle(0, -0, 90), vec = Vector(0, 1, 1)},
+        back = {ang = Angle(0, 90, 90), vec = Vector(-1, 0, 1)},
+        left = {ang = Angle(0, 180, 90), vec = Vector(0, -1, 1)},
+        top = {ang = Angle(180, 0, 0), vec = Vector(0, 0, 2)},
+        bottom = {ang = Angle(0, 0, 0), vec = Vector(0, 0, 0)}
+    }
+
+    local screens = {}
+    local function createScreens()
+        for key, t in pairs(template) do
+            -- Check if it's possible to create a component before proceeding
+            if not prop.canSpawn() then
+                 -- Yield until the next frame or allowed creation time
+            end
+
+            local ang = t.ang
+            local pos = t.vec
+            local screen = prop.createComponent(chip:getPos() + boxCenter + pos * boxSize, ang, "starfall_screen", propMdl, true)
+            screen:linkComponent(chip)
+            screen:setSolid(false)
+            screen:setMaterial("editor/flat")
+            screens[key] = screen
+            coroutine.yield()
+        end
+    end
+
+    local screenCoroutine = coroutine.create(createScreens)
+    hook.add("think", "spawnScreens", function()
+        if prop.canSpawn() then 
+            if coroutine.status(screenCoroutine) ~= "dead" then
+                coroutine.resume(screenCoroutine)
+            else 
+                 hook.remove("think", "spawnScreens")
+                net.start("screens")
+                    net.writeTable(screens)
+                net.send()
+            end
+        end
+    end)
+else
+    local screens = {}
+    local wallMat = "models/props_animated_breakable/smokestack/brickwall002a"
+    local floorMat = "sprops/textures/sprops_metal6" --"phoenix_storms/pack2/train_floor"
+    
+    chip = chip()
+    function draw()
+        if render.getScreenEntity() == screens.bottom then
+            mat = material.load(floorMat)
+            render.setMaterial(mat)
+            render.setColor(Color(0, 255, 255))
+            render.draw3DQuadEasy(Vector(100,100,0), Vector(0,0,-1), 1000, 1000)
+        else
+        end
+    end
+    
+    net.receive("screens", function()
+        screens = net.readTable()
+--[[
+        for name, screen in pairs(screens) do
+            render.createRenderTarget(name)
+        end
+]]
+        hook.add("render", "roomrender", draw)
+    end)
+
+end
