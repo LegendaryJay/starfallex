@@ -1,0 +1,62 @@
+--@name Iris
+--@author Lil'Tugboat
+--@server
+
+wire.adjustOutputs({"ModAngle", "Percent"}, {"normal", "normal"})
+
+local center = chip():getPos() + Vector(0, 0 ,150)
+
+local guideProp = prop.create(center, Angle(), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl")
+guideProp:enableGravity(false)
+centerHolo = hologram.create(
+        center,
+        Angle(), 
+        "models/sprops/misc/axis_plane.mdl"
+    )
+
+local holos = {}
+local irisCount = 10
+
+for i = 1, irisCount, 1 do
+    angle = Angle(360 * (i - 1) / irisCount, 0, 0)
+    modAngle = (guideProp:obbCenterW() - center):getAngle()[1]
+    angle:rotateAroundAxis(Angle():getRight(), modAngle)
+    
+    holos[i] = hologram.create(
+        center + Vector(0,2 * i, 0) + angle:getForward() * 20,
+        angle, 
+        "models/sprops/triangles_superthin/right/size_4/st_rtri_48x66.mdl"
+    )
+    holos[i]:setTrails(1, 1, 30, "cable/redlaser", Color(255,255,255))
+end
+
+maxZ = center[3] + 50
+minZ = chip():getPos()[3] + 50
+
+percentPosClamp =  Vector(center[1] + 70, center[2], 0)
+guideProp:setPos(percentPosClamp + Vector(0,0,maxZ))
+
+hook.add("think", "run", function()
+    local z = guideProp:getPos()[3]
+    z =  math.max(math.min(maxZ, z), minZ)
+    percent = (z - minZ) / (maxZ - minZ)
+    modAngle = (guideProp:obbCenterW() - center):getAngle()[1]
+    wire.ports.ModAngle = modAngle
+    wire.ports.Percent = percent
+    for i = 1, irisCount, 1 do
+        directionMod = math.lerp(percent, -80, -110)
+        magnitudeMod = math.lerp(percent, 40, 65)
+        angleMod = math.lerp(percent, 62, 0)
+        
+        angle = Angle(360 * (i - 1) / irisCount + directionMod, 0, 0)
+        holos[i]:setPos(center + angle:getForward() * magnitudeMod)
+        
+        newAng = Angle(angleMod + 360 * (i - 1) / irisCount, 0, 0)
+        --newAng = newAng:rotateAroundAxis(holos[i]:getRight(), 0)
+        newAng = newAng:rotateAroundAxis(holos[i]:getForward(), 5)
+        holos[i]:setAngles(newAng)
+    end
+    
+    
+    guideProp:setPos(percentPosClamp + Vector(0,0,z))
+end)

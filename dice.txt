@@ -1,0 +1,135 @@
+--@name Dice
+--@author Lil'Tugboat
+--@include libs/holotext.txt
+--@server
+
+
+
+local center = chip():getPos() + Vector(0,0,100)
+local p = prop.create(center, Angle(), "models/sprops/misc/games/d20.mdl", true)
+
+local faces = {
+    { 
+        face = "1",
+        vector = Vector(-0.0023009690921754, -0.35756728053093, -0.93388456106186)
+    },
+    { 
+        face = "2",
+        vector = Vector(0, -0.35676226019859, 0.93419522047043)
+    },
+    { 
+        face = "3",
+        vector = Vector(0.58057999610901, 0.57567352056503, -0.5757839679718)
+    },
+    { 
+        face = "4",
+        vector = Vector(-0.93504762649536, -0.0043844594620168, 0.35449510812759)
+    },
+    { 
+        face = "5",
+        vector = Vector(-0.35362553596497, -0.93536823987961, 0.005918906070292)
+    },
+    { 
+        face = "6",
+        vector = Vector(-0.35676229000092, 0.93419516086578, 8.9678316726349e-05)
+    },
+    { 
+        face = "7",
+        vector = Vector(0.57729661464691, -0.577377140522, -0.57737725973129)
+    },
+    { 
+        face = "8",
+        vector = Vector(0.57886111736298, 0.57758760452271, 0.57559758424759)
+    },
+    { 
+        face = "9",
+        vector = Vector(-0.57439643144608, 0.58131343126297, -0.57631897926331)
+    },
+    { 
+        face = "10",
+        vector = Vector(0.93313086032867, -0.0013788309879601, 0.3595344722271)
+    },
+    { 
+        face = "11",
+        vector = Vector(-0.93340623378754, -0.00061923993052915, -0.35882094502449)
+    },
+    { 
+        face = "12",
+        vector = Vector(0.5738468170166, -0.57976007461548, 0.57842743396759)
+    },
+    { 
+        face = "13",
+        vector = Vector(-0.5801894068718, -0.57790976762772, -0.57393407821655)
+    },
+    { 
+        face = "14",
+        vector = Vector(-0.57870477437973, 0.56730902194977, 0.58588492870331)
+    },
+    { 
+        face = "15",
+        vector = Vector(0.35676229000092, -0.93419522047043, 1.6333989094619e-07)
+    },
+    { 
+        face = "16",
+        vector = Vector(0.35398414731026, 0.93525069952011, -0.0011656048009172)
+    },
+    { 
+        face = "17",
+        vector = Vector(0.92978227138519, -3.218121946702e-08, -0.36811020970345)
+    },
+    { 
+        face = "18",
+        vector = Vector(-0.57345426082611, -0.58310794830322, 0.57544380426407)
+    },
+    { 
+        face = "19",
+        vector = Vector(0, 0.35685187578201, -0.93416088819504)
+    },
+    { 
+        face = "20",
+        vector = Vector(0.0064237308688462, 0.35747131705284, 0.93390196561813)
+    }
+}
+
+local HoloText = require("libs/holotext.txt")
+
+-- Code to test the library
+local text = HoloText:new("", chip():getPos() + chip():getUp() * 5, chip():getAngles(), Vector(0.5), Color(255,255,255))
+text:setMaterial("models/debug/debugwhite")
+
+--[[
+for key, dieInfo in pairs(faces) do
+    h = hologram.create(p:localToWorld(dieInfo.vector*10, Angle()), Angle(), "models/hunter/misc/sphere025x025.mdl", Vector(0.1,0.1,0.1))
+    h:setParent(p)
+end
+]]
+
+ignore = false
+hook.add("think", "dice", function()
+    local velocity = p:getAngleVelocity()
+    local rotSpeed = velocity:getLength()
+    if rotSpeed > 0.1 then
+       ignore = false
+    elseif not ignore or p:isPlayerHolding() then
+        ignore = true
+        
+        closestDist = -99999999
+        closestKey = ""
+        for key, dieInfo in pairs(faces) do
+            face = dieInfo.face
+            vec = dieInfo.vector
+            
+            dieVec = p:localToWorld(vec * 10, Angle())
+            dist = dieVec[3]
+            
+            if (dist > closestDist) then
+                closestDist = dist
+                closestKey = tostring(dieInfo.face)
+            end
+        end
+        text:setText(closestKey)
+        vec = p:getPos() + Vector(0,0,20)
+        text:setPos(vec)
+        --text:setAngles(chip():getAngles())
+    end
+end)

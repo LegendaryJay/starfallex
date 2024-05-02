@@ -1,0 +1,101 @@
+--@name Untitled
+--@author Lil'Tugboat
+--@server
+
+local camera = prop.createSent(chip():getPos() + Vector(0,-20,0), Angle(),  "gmod_wire_cameracontroller", 1, {
+    AllowZoom = false,
+    AutoMove = false,
+    AutoUnclip = false,
+    AutoUnclip_IgnoreWater = false,
+    DrawParent = true,
+    DrawPlayer = true,
+    FreeMove = false,
+    LocalMove = false,
+    Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
+    ParentLocal = false,
+})
+local camera = wire.getWirelink(camera)
+--[[
+-- out 
+1	=	wirelink
+2	=	On
+3	=	HitPos
+4	=	CamPos
+5	=	CamDir
+6	=	CamAng
+7	=	Trace
+
+-- in
+1	=	Activated
+2	=	Direction
+3	=	Angle
+4	=	Position
+5	=	Distance
+6	=	UnRoll
+7	=	Parent
+8	=	FilterEntities
+9	=	FLIR
+10	=	FOV
+]]
+
+local chair = prop.createSeat(chip():getPos(), Angle(), "models/props_c17/chair02a.mdl", true)
+
+--[[
+
+
+    local driver
+    local function set_driver(ply, vehicle, role)
+        if vehicle ~= chair then return end 
+        driver = role and ply
+    end
+
+    hook.add("PlayerEnteredVehicle", "SetDriver", set_driver)
+    hook.add("PlayerLeaveVehicle", "SetDriver", set_driver)
+    
+
+    
+    -- Map of inputs and their acceleration values / forces
+    local inputs = {
+        [IN_KEY.FORWARD] = Vector(1, 0 ,0),
+        [IN_KEY.BACK] = Vector(-1, 0, 0),
+        [IN_KEY.MOVELEFT] = Vector( 0, 1, 0),
+        [IN_KEY.MOVERIGHT] = Vector(0, -1, 0)
+    }
+    local outputs = {}
+    
+    
+    hook.add("KeyPress", "KeyPress", function(ply, key)
+        if ply ~= driver then return end 
+        if inputs[key] then
+            outputs[key] = 1
+        end
+    end)
+    
+    hook.add("KeyRelease", "KeyRelease", function(ply, key)
+        if ply ~= driver then return end 
+        if inputs[key] then
+            outputs[key] = 0
+        end
+    end)
+    
+    
+    hook.add("Tick", "Update", function()
+        driveDirection = Vector()
+        for key, value in pairs(outputs) do
+            driveDirection = driveDirection + inputs[key] * value
+        end
+        drivePos = chair:getMassCenterW() + driveDirection * 50
+        --holos:setPos("driveHolo", drivePos)
+    end)
+
+]]
+
+
+
+
+hook.add("think", "cam", function()
+    camera.Parent = chair
+    camera.Angle = chair:getForward():getAngle()
+    camera.Activated = 1
+    camera.Position = chair:obbCenterW() + chair:getForward() * 20
+end)

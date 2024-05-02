@@ -2,53 +2,87 @@
 --@author Lil'Tugboat
 --@server
 
-local sphereSize = Vector(50,50,50)
-local sphereRadiusCubed = Vector(50,50,50)
 
+local SlimeBodyManager = class("SlimeBodyManager")
 
--- Constants for radius calculations
-local targetRadius = 30
-local deadzoneRadius = 5
-local stickyRadius = 10
-
-local totalSensorLength = targetRadius + deadzoneRadius + stickyRadius
-
--- Initial setup of environment
-local center = chip():getPos() + Vector(0, 0, 100)
-local cubedSize = totalSensorLength^3
-local cubedTargetSize = targetRadius^3
-
--- Hologram initial setup
-local function createHolo(center, scale, color, model, angle, mat)
-    local holo = hologram.create(center, angle, model)
-    holo:setScale(Vector(scale, scale, scale))
-    holo:setColor(color)
-    holo:setMaterial(mat or "")
-    return holo
+function SlimeBodyManager:initialize(center, radius)
+    self.center = center
+    self.radius = radius
+    self.radii = Vector(radius, radius, radius)
+    self.size = self.radii * 2
+    self.volume = radius^3
+    local tempRadiusSqr = radius^2
+    self.radiiSqr = Vector(tempRadiusSqr,tempRadiusSqr,tempRadiusSqr)
+    self.angles = Angle()
+    self.desireDirection = center
+    
+    self.onUpdate = function()end
+    
+    return self
 end
 
-local sphereHolo = createHolo(center, 1, Color(255, 200, 200, 50), "models/sprops/geometry/sphere_144.mdl", Angle(), "WTP/paint_1")
-local cubeHolo = createHolo(center, -1, Color(0, 255, 0, 50), "models/sprops/geometry/sphere_144.mdl", Angle(), "models/wireframe")
-
-local helper = prop.create(center + Vector(0, 0, 5), Angle(), "models/holograms/cube.mdl", 1)
-local sizer = prop.create(center + Vector(1, 1, 1) * totalSensorLength, Angle(), "models/props_phx/gears/bevel9.mdl", 1)
-
--- Function to update the size of holograms
-local function updateSize(sizeVec)
-    sizeVec = Vector(math.abs(sizeVec.x), math.abs(sizeVec.y), math.abs(sizeVec.z)) * 0.5
-    local scale = (cubedSize / (sizeVec.x * sizeVec.y * sizeVec.z))^(1/3)
-    local scale2 = (cubedTargetSize / (sizeVec.x * sizeVec.y * sizeVec.z))^(1/3)
-    sphereSize = sizeVec * scale * 2
-    sphereTargetSize = sizeVec * scale2 
-    sphereRadiusCubed = Vector(sphereSize[1] ^ 2, sphereSize[2] ^ 2, sphereSize[3] ^ 2)
-    sphereHolo:setSize(sphereSize* 2)
-    cubeHolo:setSize(-sphereTargetSize)
+function SlimeBodyManager:setRadii(radiiVector)
+    if radiiVector.x <= 0 or radiiVector.y <= 0 or radiiVector.z <= 0 then
+        error("Invalid radii: Radii must be greater than zero.")
+    end
+    local scale = (self.volume / (radiiVector.x * radiiVector.y * radiiVector.z))^(1/3)
+    self.radii = radiiVector * scale
+    self.size = self.radii * 2
+    self.radiiSqr = Vector(self.radii.x ^ 2, self.radii.y ^ 2, self.radii.z ^ 2)
 end
 
-function calculateLengthToSurface(direction)
-    local xRadius = sphereRadiusCubed[1]
-    local yRadius = sphereRadiusCubed[2]
-    local zRadius = sphereRadiusCubed[3]
+function SlimeBodyManager:setCenter(center)
+    self.center = center
+    self.onUpdate()
+end
+
+function SlimeBodyManager:setAngles(angles)
+    self.angles = angles
+    self.onUpdate()
+end
+function SlimeBodyManager:setDesireDirection(direction)
+    self.desireDirection = direction
+    self.onUpdate()
+end
+
+function SlimeBodyManager:setOnUpdate(func)
+    self.onUpdate = func
+end
+
+------------ ARM STUFF ------------------
+
+
+
+
+local SlimeArmManager = class("SlimeArmManager")
+
+function SlimeArmManager:initialize(body, repelWeight, deadWeight, stickyWeight)
+    self.body = body
+    local totalWeight = repelWeight + deadWeight + stickyWeight
+    self.repelWeight = repelWeight/totalWeight
+    self.deadWeight = deadWeight/totalWeight
+    self.stickyWeight = stickyWeight/totalWeight
+    self.arms = {}
+    
+    self.onCreate = function()end 
+    self.onRemove = function()end
+
+end
+
+
+function SlimeArmManager:setOnCreate(func)
+    self.onCreate = func
+end
+function SlimeArmManager:setOnRemove(func)
+    self.onRemove = func
+end
+
+function SlimeArmManager:calculateLengthToSurface(direction)
+    -- get sphere TargetRadius
+    direction = worldToLocal(direction, Angle(), Vector(), self.body.angles)
+    local xRadius = self.body.radiiSqr[1]
+    local yRadius = self.body.radiiSqr[2]
+    local zRadius = self.body.radiiSqr[3]
     
     local xDir = direction[1]^2
     local yDir = direction[2]^2
@@ -69,40 +103,389 @@ function calculateLengthToSurface(direction)
     return math.min(t1, t2);
 end
 
-
--- Function to update holograms based on the "arm" state
-local function updateHolo(arm)
-    local length = (math.abs(calculateLengthToSurface(arm.normal)))
+function SlimeArmManager:updateInternalArmLengths(arm)
     
-    local repel = targetRadius + math.max(0, arm.dot) * stickyRadius * 1
-    local dead = deadzoneRadius
-    local stick = stickyRadius - math.max(0, arm.dot) * stickyRadius * 1
+    arm.dot = self.body.desireDirection:getNormalized():dot(arm.direction)
+    local dot = math.max(0, arm.dot) * self.stickyWeight * 0.5
     
-    local totalRadii = repel + dead + stick
-    
-    -- Normalizing radii
-    repel = repel / totalRadii
-    dead = dead / totalRadii
-    stick = stick / totalRadii
-
-    
-    local repelSize = repel * length 
-    local deadSize = dead * length 
-    local stickSize = stick * length
-
-    arm.repelHolo:setSize(Vector(repelSize, 1, 1))
-    arm.deadHolo:setSize(Vector(1, 1, 1))
-    arm.pullHolo:setSize(Vector(stickSize, 1, 1))
-
-    arm.repelHolo:setPos(center + arm.normal * (repelSize * 0.5))
-    arm.deadHolo:setPos(center + arm.normal * (repelSize + deadSize * 0.5))
-    arm.pullHolo:setPos(center + arm.normal * (repelSize + deadSize + stickSize * 0.5))
+    arm.totalLength = math.abs( self:calculateLengthToSurface(arm.direction))--, self.body.angles)
+    arm.repelLength = (self.repelWeight + arm.dot * play)  * arm.totalLength 
+    arm.deadLength = self.deadWeight * arm.totalLength )
+    arm.stickyLength = (self.stickyWeight - arm.dot * play) * arm.totalLength
 end
 
--- Generate hologram "arms" in all cardinal directions
-local arms = {}
-local index = 1
+function SlimeArmManager:update(arm)
+    self:updateInternalArmLengths(arm)
+    arm.origin = self.body.center
+    return arm
+end
 
+function SlimeArmManager:create(direction)
+    arm = {
+        direction = direction,
+        dot = 0,
+        origin = self.body.center
+    }
+    self.onCreate(arm)
+    self:update(arm)
+    table.insert(self.arms, arm)
+    
+    return arm
+end
+
+function SlimeArmManager:foreach(func)
+    for key, arm in pairs(self.arms) do
+       func(key, arm)
+    end
+end
+
+function SlimeArmManager:updateAll()
+    for key, arm in pairs(self.arms) do
+        self:update(arm)
+    end
+end
+
+function touch(direction)
+
+end
+
+function search(direction)
+
+end
+
+function unitSearch(arm)
+    --if not input then reruten
+    
+end
+
+--[[
+ 
+function SlimeArmManager:update(key, position, entity)
+    local arm = self.arms[key]
+    if not arm then return false end
+    
+    if isValid(entity) then
+        arm.hasEntity = true
+        if entity == arm.attachedEntity then
+            position = entity:localToWorld(arm.localEntityVector)
+        else
+            arm.attachedEntity = entity
+            arm.localEntityVector = entity:worldToLocal(position)
+        end
+    else
+        arm.hasEntity = false
+        arm.attachedEntity = nil
+        arm.localEntityVector = nil
+    end 
+    arm.position = position
+    self.onUpdate(key, arm)
+    return arm
+end
+
+function SlimeArmManager:create(position, entity)
+        local arm = {}
+        local key = table.insert(self.arms, arm) 
+        self:update(key, position, entity)
+        self.onCreate(key, arm)
+        return arm
+end    
+
+function SlimeArmManager:remove(key)
+    self.onRemove(key, self.arms[key])
+    local remove = table.remove(self.arms, key)
+    if remove then return true end
+    return false
+end
+
+function SlimeArmManager:getArm(key)
+    return self.arms[key]
+end
+
+return SlimeArmManager
+
+
+
+
+
+
+
+
+
+
+
+ local function randomVector()
+
+        local x = 2 * math.random() - 1
+        local y = 2 * math.random() - 1
+        local z = 2 * math.random() - 1
+    
+        return Vector(x, y, z):getNormalized()
+    end
+    
+    local function localTrace(localVector)
+        return trace.line(chairPos, chairPos + localVector * (targetRadius + stickyRadius), chair)
+    end 
+    
+    
+    local targetVecTotal = Vector()
+    local targetVecCount = 0
+    
+    local targetAngVecTotal = Vector()
+    local targetAngVecCount = 0
+    
+    local function resetTarget()
+        targetVecTotal = Vector()
+        targetVecCount = 0
+    end
+    local function setTarget(vector, weight)
+        if not weight then
+            weight = 1
+        end
+        targetVecTotal = targetVecTotal + vector * weight
+        targetVecCount = targetVecCount + weight
+    end
+    
+    local function getTarget() 
+        if targetVecCount and targetVecCount == 0 then return Vector() end
+        return targetVecTotal / targetVecCount
+    end
+    
+    
+    local unusedHolos = {}
+    local holoItt = 1
+    
+    
+    function onArmCreate(key, arm)
+        if #unusedHolos == 0 then
+            arm.holo = holoItt
+            holoItt = holoItt + 1
+            holos:create(arm.holo)
+            holos:setModel(arm.holo, "models/holograms/hq_icosphere.mdl")
+            holos:setScale(arm.holo, Vector(1,1,1))
+        else
+            arm.holo = table.remove(unusedHolos, #unusedHolos)
+            holos:setParent(arm.holo)
+        end
+    end
+    
+    function onArmUpdate(key, arm)
+        local vector = (arm.position - chairPos)
+        local angle = vector:getAngle()
+        arm.length = vector:getLength()
+        arm.direction = vector / arm.length
+        local binName = bins:getBinName(angle)
+        if not arm.binName then
+            bins:add(binName)
+        else 
+            bins:move(arm.binName, binName)
+        end   
+        arm.binName = binName
+    end
+    
+    function onArmRemove(key, arm)
+        bins:remove(arm.binName)
+        holos:setScale(arm.holo, Vector(0,0,0))
+        holos:setPos(arm.holo, chairPos)
+        holos:setParent(arm.holo, chair)
+        table.insert(unusedHolos, arm.holo)
+    end 
+    
+    local arms = ArmManager:new(onArmCreate, onArmUpdate, onArmRemove)
+    
+  
+    local function sense()
+        arms:foreach(function(key, arm) -- check all the arms
+
+            local direction = arm.position - chairPos
+            
+            local binName = bins:getBinName(direction:getAngle())
+            if binName != arm.binName and bins:isFull(binName, ArmBinCountSize) then 
+                arms:remove(key)
+                return 
+            end
+            
+            local tracer = localTrace(arm.position - chairPos)
+            local entity = nil 
+            
+            if not tracer.Hit then
+                arms:remove(key) -- remove it if it didnt hit anything
+                return
+            end
+            
+            if tracer.Entity then
+                entity = tracer.Entity -- check for entity
+            end
+            
+            arms:update(key, tracer.HitPos, entity) -- update
+            
+        end)
+        
+        remainingSensors = sensorCount - #feet
+        for i = 1, remainingSensors, 1 do
+            -- set direction
+            local direction = randomVector()
+            local directionAngle = direction:getAngle()
+            
+            -- check bin and quit if full
+            local binName = bins:getBinName(directionAngle)
+            if bins:isFull(binName) then return end
+            
+            -- see if it hits anything, otherwise quiet
+            local tracer = localTrace(direction)
+            if not tracer.Hit then return end
+    
+            -- create arm
+            arms:create(tracer.HitPos, tracer.Entity) 
+        end
+    end
+
+    local function armInteractions()
+        local locationSum = Vector()
+        local locationSumCount = 0
+        
+        arms:foreach(function(key, arm)         
+            local weight = 1
+            local target = chairPos
+            local color = Color(255,255,255)
+            local scale = 0.3
+            
+            local dist = arm.length
+        
+            if dist < targetRadius then
+                arm.delay = 0
+                -- Too Close!
+                target = chairPos + arm.direction * (dist - targetRadius)
+                weight = 1
+                color = interpolateColor(dist/targetRadius, Color(255,0,0), Color(255,255,255))
+                --sscale = 0
+            elseif dist < (targetRadius + deadzoneRadius)  then
+                arm.delay = 0
+                -- perfect!
+                --target = chairPos
+                --weight = 1
+                --color = Color(255,255,255) 
+                --scale = 0
+            elseif dist < (targetRadius + deadzoneRadius + stickyRadius) then
+                arm.delay = 0
+                -- too far! (pull back)
+                target = chairPos + arm.direction * (dist - targetRadius - deadzoneRadius)
+                local percentAway = (dist - targetRadius - deadzoneRadius)/stickyRadius
+                weight = percentAway * 2
+                color = interpolateColor(percentAway,Color(255,255,255), Color(0,255,0))
+                --scale = 0.1
+            else
+                arm.delay = arm.delay + 1
+                if not arm.hasEntity or arm.delay > 100 then 
+                    target = chairPos + arm.direction * (dist - targetRadius - deadzoneRadius)
+                    local percentAway = (dist - targetRadius - deadzoneRadius)/stickyRadius
+                    weight = percentAway * 10
+                    color = interpolateColor(percentAway,Color(255,255,255), Color(0,255,0))
+                    
+                    arms:remove(key)
+                    return
+                end 
+            end
+            setTarget(target, weight )
+            holos:setColor(arm.holo, color) 
+            holos:setScale(arm.holo, Vector(scale,scale,scale))
+            holos:setPos(arm.holo, arm.position)
+            
+            locationSum = locationSum + arm.position
+            locationSumCount = locationSumCount + 1
+        end)
+        local direction
+        local angle
+        if locationSumCount > 0 then
+            local target = locationSum/#arms.arms
+            local vector = target - chairPos
+            local direction = vector:getNormalized()
+            local axis = direction:cross(chair:getUp())
+            angle = chairAng:rotateAroundAxis(axis, 100)
+        else
+            angle = Angle()
+            angle[2] = chairAng[2]
+        end
+        
+        pdController:setTargetAng(angle) 
+    end
+
+]]
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+-- Constants for radius calculations
+local repelWeight = 15
+local deadWeight = 3
+local stickyWeight = 5
+
+
+local bodyRadius = 100
+
+-- Initial setup of environment
+local center = chip():getPos() + Vector(0, 0, 100)
+
+local body = SlimeBodyManager:new(center, bodyRadius)
+local arms = SlimeArmManager:new(body, repelWeight, deadWeight, stickyWeight)
+
+local holoMdl = "models/holograms/cube.mdl"
+
+arms:setOnCreate(function(arm) 
+    local ang = arm.direction:getAngle()
+    arm.repelHolo = hologram.create(arm.origin, ang, holoMdl)
+    arm.repelHolo:setColor(Color(255, 0,0))
+    
+    arm.deadHolo = hologram.create(arm.origin, ang, holoMdl)
+    arm.deadHolo:setColor(Color(255,255,255))
+    
+    arm.pullHolo = hologram.create(arm.origin, ang, holoMdl)
+    arm.pullHolo:setColor(Color(0, 255,0))
+end)
+
+function updateHolos(key, arm)
+    arm.repelHolo:setSize(Vector(arm.repelLength, 1, 1))
+    arm.deadHolo:setSize(Vector(1, 1, 1))
+    arm.pullHolo:setSize(Vector(arm.stickyLength, 1, 1))
+
+    arm.repelHolo:setPos(body.center + arm.direction * (arm.repelLength * 0.5))
+    arm.deadHolo:setPos(body.center + arm.direction * (arm.repelLength + arm.deadLength * 0.5))
+    arm.pullHolo:setPos(body.center + arm.direction * (arm.repelLength + arm.deadLength + arm.stickyLength * 0.5))
+end
+
+
+-- Hologram initial setup
+local sphereHolo = hologram.create(body.center, Angle(),"models/sprops/geometry/sphere_144.mdl")
+sphereHolo:setColor(Color(255, 200, 200, 50))
+sphereHolo:setMaterial("WTP/paint_1")
+sphereHolo:setSize(Vector(1, 1, 1) * bodyRadius * 2)
+
+body:setOnUpdate(function()
+    sphereHolo:setSize(body.size)
+    sphereHolo:setAngles(body.angles)
+end)
+
+local sizer = prop.create(body.center + Vector(1, 1, 1) * bodyRadius, Angle(), "models/sprops/misc/alphanum/alphanum_arrow_b.mdl", 1)
+local pointer = prop.create(body.center + Vector(1, 1, 1) * bodyRadius, Angle(), "models/sprops/misc/games/d20.mdl", 1)
+
+-- Generate hologram "arms" in all cardinal directions
 for x = -1, 1, 1 do
     for y = -1, 1, 1 do
         for z = -1, 1, 1 do
@@ -110,39 +493,29 @@ for x = -1, 1, 1 do
             if vector:isZero() then
                 continue
             end
-            vector:normalize()
-            local angle = vector:getAngle()
-
-            local repelHolo = createHolo(center + vector * 10, 0.3, Color(255, 0, 0), "models/holograms/cube.mdl", angle)
-            local deadHolo = createHolo(center + vector * 15, 0.3, Color(255, 255, 255), "models/holograms/cube.mdl", angle)
-            local pullHolo = createHolo(center + vector * 20, 0.3, Color(0, 255, 0), "models/holograms/cube.mdl", angle)
-
-            arms[index] = {
-                normal = vector,
-                repelHolo = repelHolo,
-                deadHolo = deadHolo,
-                pullHolo = pullHolo
-            }
-            index = index + 1
+            arms:create(vector:getNormalized())
         end
     end
 end
 
 function updateOnThink()
-    for key, arm in pairs(arms) do
-        arm.dot = arm.normal:dot(((center - helper:getPos()):getNormalized()))
-        updateHolo(arm)
-    end
+    body:setAngles((pointer:getPos() - body.center):getAngle())
+    body:setDesireDirection((body.center - pointer:getPos()):getNormalized())
+    arms:updateAll()
 
-    local sizeVec = (sizer:getPos() - center):getNormalized()
-    sizeVec = Vector(math.abs(sizeVec.x), math.abs(sizeVec.y), math.abs(sizeVec.z))
-    updateSize(sizeVec)
+    local sizeVec = (sizer:getPos() - body.center):getNormalized()
+    radiiVector = Vector(math.abs(sizeVec.x), math.abs(sizeVec.y), math.abs(sizeVec.z))
+    body:setRadii(radiiVector)
+    
+    
 end
-updateOnThink()
+
 -- Update holograms on each server tick
 hook.add("think", "holos", function()
-    if helper:isPlayerHolding() or sizer:isPlayerHolding()  then 
+    if pointer:isPlayerHolding() or sizer:isPlayerHolding() then 
         updateOnThink()
     end
+    
+    arms:foreach(updateHolos)
 end)
 

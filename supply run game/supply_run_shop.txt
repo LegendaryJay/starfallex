@@ -1,0 +1,240 @@
+--@name Supply Run Shop
+--@author Lil'Tugboat
+--@model 
+--@shared
+
+local products = {
+    {
+        model = "models/props_c17/oildrum001.mdl",
+        weight = 250,
+        key = "oil",
+        price = 20,
+        --mat = "models/XQM//Deg360",
+        skin = 2,
+        locations = {"Oil Refinery"}
+    },
+    {
+        model = "models/props_junk/metalgascan.mdl",
+        weight = 250,
+        key = "gas",
+        price = 20
+        locations = {"Oil Refinery"}
+    },
+    {
+        model = "models/props_c17/canister_propane01a.mdl",
+        weight = 200,
+        key = "diesel",
+        price = 20
+        locations = {"Oil Refinery"}
+    },
+--[[
+    {
+        model = "models/props/de_prodigy/concretebags4.mdl",
+        weight = 200,
+        key = "Concrete Pallette SM",
+        price = 20
+    },
+    {
+        model = "models/props/de_prodigy/concretebags3.mdl",
+        weight = 500,
+        key = "Concrete Pallette MD",
+        price = 20
+    },
+    {
+        model = "models/props/de_prodigy/concretebags2.mdl",
+        weight = 650,
+        key = "Concrete Pallette LG",
+        price = 20
+    },
+    {
+        model = "models/props/de_prodigy/concretebags.mdl",
+        weight = 900,
+        key = "Concrete Pallette XL",
+        price = 20
+    },   
+]]
+}
+    
+
+if SERVER then
+    wire.adjustOutputs({"Entities", "Owners"}, {"array", "array"})
+
+
+    spawnZone = prop.create(chip():getPos() + Vector( 0, 100, 0), Angle(), "models/props_phx/construct/glass/glass_angle360.mdl")
+    spawnZone:setFrozen(true)
+
+    zoneSize = Vector(1,1,1) * math.max(spawnZone:obbSize()[1], spawnZone:obbSize()[2], spawnZone:obbSize()[3])
+
+    screen = prop.createComponent(chip():getPos() + Vector(0,0, 40), Angle( 0, 0 ,45 ), "starfall_screen", "models/sprops/rectangles_superthin/size_3_5/rect_30x30.mdl", true)
+    screen:linkComponent(chip())
+    screen:setMaterial("editor/flat")
+
+    waitHolo = hologram.create(Vector(), Angle(), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl")
+    waitHolo:setMaterial("models/vortigaunt/pupil")
+    
+    -- Get size info for future spawning
+    for index, product in ipairs(products) do
+        holo = hologram.create(Vector(), Angle(), product.model)
+        product.details = {
+            size = holo:obbSize(),
+            center = holo:obbCenter(),
+            spawnPos = Vector(
+                0, 
+                0, 
+                holo:obbSize()[3] * 0.5
+            ) - holo:obbCenter() + Vector(
+                0,
+                0,
+                spawnZone:obbSize()[3]*0.5
+            )
+        }
+        holo:remove()
+    end
+
+    -- Queue stuff
+    spawnQueue = {}
+    ownerQueue = {}
+    function addToQueue(ply, index)
+        table.insert(spawnQueue, index)
+        table.insert(ownerQueue, ply)
+    end
+    
+    -- Spawning
+    local spawned = {}
+    local spawnedOwners = {}
+    local spawnCount = 0
+    function spawnItem(index, ply)
+        product = products[index]
+        
+        pos, ang = localToWorld(product.details.spawnPos, Angle(),spawnZone:obbCenterW(), spawnZone:getAngles() )
+        item = prop.create(pos, ang, product.model)
+        item:setMass(product.weight)
+        item:setFrozen(true)
+        item:setMaterial(product.mat or "")
+        item:setSkin(product.skin or 0)
+        table.insert(spawned, item)
+        table.insert(spawnedOwners, ply)
+        wire.ports.Entities = spawned
+        wire.ports.Owners = spawnedOwners
+        
+        spawnCount = spawnCount + 1
+    end
+    
+    function isAreaClear()
+        local top = spawnZone:localToWorld(Vector(0,0,zoneSize[3]))
+        t = trace.hull(top, spawnZone:obbCenterW(), spawnZone:obbMins(), spawnZone:obbMaxs(), spawnZone, nil, nil, true)
+        return not t.Hit
+    end
+    
+    
+    hook.add("KeyPress", "checkItemSpawn", function(ply, key)
+        --retreavalZoneHolo:setAngles(Angle())
+        while #spawnQueue > 0 and prop.canSpawn() and isAreaClear() do
+            key = table.remove(spawnQueue, 1)
+            ply = table.remove(ownerQueue, 1)
+            spawnItem(index, ply)
+        end
+        if (#spawnQueue > 0) then
+            local index = spawnQueue[1]
+            product = products[index]
+            pos = localToWorld(product.details.spawnPos, Angle(),spawnZone:obbCenterW(), spawnZone:getAngles() )
+            waitHolo:setScale(Vector(1,1,1) * 0.9)
+            waitHolo:setPos(pos)
+            waitHolo:setModel(product.model)
+            local color
+            if isAreaClear() then
+                color = Color(0, 255, 0)
+            else 
+                color = Color(255, 0,0)
+            end
+            waitHolo:setColor(color)
+        else
+            waitHolo:setScale(Vector())
+        end
+     end)
+    
+    net.receive("buy", function(_, ply)
+        index = net.readFloat()
+        addToQueue(ply, index)
+    end)
+else
+    local button = class("Button")
+    function button:initialize(x, y, text, w, h)
+        self.x = x
+        self.y = y
+        self.w = w or 300
+        self.h = h or 20
+        self.text = text
+        self.pressed = false
+    end
+    function button:isHovered(cx, cy)
+        return cx and cx > self.x and cx < self.x+self.w and cy > self.y and cy < self.y+self.h
+    end
+    function button:draw()
+        render.setRGBA(127, 127, 127, 255)
+        render.drawRect(20, self.y+20, 300, 2)
+        if not self.pressed then
+            render.setRGBA(255, 255, 255, 255)
+        end
+        render.drawRect(self.x, self.y, self.w, self.h)
+        render.setRGBA(0, 0, 0, 255)
+        render.setFont("DermaDefault")
+        local offset = self.pressed and 4 or 3
+        render.drawText(self.x+offset, self.y+offset, self.text)
+    end
+    
+    local menu = class("Menu")
+    function menu:initialize(products)
+        self.buttons = {}
+        self.pressed = false
+        for i, item in ipairs(products) do
+            self.buttons[i] = button:new(20, (i-1)*30+20, string.format(
+                "Buy %s for %s (Weight: %d)",
+                item.key,
+                "$" .. item.price,
+                item.weight
+            ))
+        end
+    end
+    function menu:drawButtons()
+        for i, button in ipairs(self.buttons) do
+            button:draw()
+        end
+    end
+    function menu:handleInput()
+        -- Only trigger when the use key is pushed down
+        if player():keyDown(IN_KEY.USE) then
+            if not self.pressed then -- If use was pressed this frame but not last frame
+                self.pressed = true
+
+                local cx, cy = render.cursorPos()
+                if not cx or not cy then return end
+
+                for i, button in ipairs(self.buttons) do
+                    if button:isHovered(cx, cy) then
+                        self:buy(i)
+                        button.pressed = true
+                        break
+                    end
+                end
+            end
+        elseif self.pressed then -- Otherwise, if use was not pressed this frame, but was pressed last frame
+            self.pressed = false
+
+            for i, button in ipairs(self.buttons) do
+                button.pressed = false
+            end
+        end
+    end
+    function menu:buy(index)
+        net.start("buy")
+            net.writeFloat(index)
+        net.send()
+    end
+
+    local myMenu = menu:new(products)
+    hook.add("render", "list", function()
+        myMenu:handleInput()
+        myMenu:drawButtons()
+    end)
+end

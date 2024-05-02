@@ -1,0 +1,49 @@
+--@name dice face checker
+--@author Lil'Tugboat
+--@shared
+
+
+if SERVER then
+    local center = chip():getPos() + Vector(0,0,50)
+
+    local p = prop.create(center, Angle(), "models/sprops/misc/games/d12.mdl", true)
+
+    net.receive("request", function (len, ply)
+        net.start("number")
+        net.writeEntity(p)
+        net.send(ply)
+    end)
+else
+    local entity
+    local diceValues = {}
+    net.start("request")
+    net.send()
+
+    net.receive("number", function (len)
+        entity = net.readEntity()
+        print("ready" .. tostring(entity))
+    end)
+    hook.add("PlayerChat", "chat", function(ply, text)
+        local num = tonumber(text)
+        if ply == owner() then
+            print(num)
+            if num then
+                pos = entity:worldToLocal( entity:getPos() + Vector(0,0,1), Angle()) 
+                print(pos)
+                diceValues[text] = {
+                    face = text,
+                    pos = pos
+                }
+                holo = hologram.create(
+                    entity:localToWorld(pos * 15, Angle()), 
+                    Vector(0,0,1):getAngle(), "models/props_junk/harpoon002a.mdl", Vector(0.1,0.1,0.1))
+                holo:setParent(entity)
+                print(text)
+            end
+            if text == "end" then
+                print(json.encode( diceValues))
+            end
+        end
+    end)
+end
+

@@ -20,6 +20,7 @@ if CLIENT then
                     pos = e:getPos(),
                     angle = e:getAngles(),
                     mat = e:getMaterial(),
+                    color = e:getColor(),
                     
                 }
                 printTable(info)

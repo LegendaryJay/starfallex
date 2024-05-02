@@ -1,0 +1,32 @@
+--@name Supply Run Dropoff
+--@author Lil'Tugboat
+--@server
+
+local locationName = "Oil Refinery"
+wire.adjustOutputs({"Location"}, {"string"})
+wire.ports.Location = locationName
+
+retreavalZone = prop.create(chip():getPos() + Vector( 0, -100, 0), Angle(), "models/sprops/rectangles/size_90/rect_90x90x3.mdl")
+retreavalZone:setColor(Color(255,0, 0))
+retreavalZone:setMaterial("phoenix_storms/fender_white")
+
+
+retreaveSize = Vector(1,1,1) * math.max(retreavalZone:obbSize()[1], retreavalZone:obbSize()[2], retreavalZone:obbSize()[3])
+retreavalZoneHolo = hologram.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x8.mdl", Vector())
+rzhScale = retreaveSize / retreavalZoneHolo:obbSize()
+retreavalZoneHolo:setParent(retreavalZone)
+retreavalZoneHolo:setAngles(retreavalZone:getAngles())
+retreavalZoneHolo:setPos(retreavalZone:localToWorld(-retreavalZoneHolo:obbCenter() * rzhScale +  Vector(0,0,retreaveSize[3]) * 0.5))
+retreavalZoneHolo:setSize(retreaveSize)
+retreavalZoneHolo:setMaterial("phoenix_storms/fender_white")
+retreavalZoneHolo:setColor(retreavalZone:getColor():setA(50))
+
+
+
+hook.add("think", "deleteListener", function()
+    radius = retreaveSize[1] * 0.5
+    center = retreavalZone:localToWorld(Vector(0, 0, radius))
+end)
+
+hook.add("KeyPress", "checkItemSpawn", function(ply, key)
+ end)

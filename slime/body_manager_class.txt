@@ -1,0 +1,80 @@
+--@name Body Manager Class
+--@author Lil'Tugboat
+--@shared
+
+local SlimeBodyManager = class("SlimeBodyManager")
+
+function SlimeBodyManager:initialize(center, radius)
+    self.center = center
+    self.radius = radius
+    self.volume = radius^3
+    self:setRadii(Vector(1,1,1)*radius)
+    self.angles = Angle()
+    self.desireDirection = center
+    
+    self.onUpdate = function()end
+    
+    return self
+end
+
+function SlimeBodyManager:setRadii(radiiVector)
+    if radiiVector[1] <= 0 or radiiVector[2] <= 0 or radiiVector[3] <= 0 then
+        error("Invalid radii: Radii must be greater than zero.")
+    end
+    local scale = (self.volume / (radiiVector[1] * radiiVector[2] * radiiVector[3]))^(1/3)
+    self.radii = radiiVector * scale
+    self.size = self.radii * 2
+    self.radiiSqr = Vector(self.radii.x ^ 2, self.radii.y ^ 2, self.radii.z ^ 2)
+end
+
+function SlimeBodyManager:setCenter(center)
+    self.center = center
+    self.onUpdate()
+end
+
+function SlimeBodyManager:setAngles(angles)
+    self.angles = angles
+    self.onUpdate()
+end
+function SlimeBodyManager:setDesireDirection(direction)
+    self.desireDirection = direction
+    self.onUpdate()
+end
+
+function SlimeBodyManager:setOnUpdate(func)
+    self.onUpdate = func
+end
+
+function SlimeBodyManager:getCenter()
+    return self.center
+end
+
+function SlimeBodyManager:getRadius()
+    return self.radius
+end
+
+function SlimeBodyManager:getRadii()
+    return self.radii
+end
+
+function SlimeBodyManager:getSize()
+    return self.size
+end
+
+function SlimeBodyManager:getVolume()
+    return self.volume
+end
+
+function SlimeBodyManager:getRadiiSqr()
+    return self.radiiSqr
+end
+
+function SlimeBodyManager:getAngles()
+    return self.angles
+end
+
+function SlimeBodyManager:getDesireDirection()
+    return self.desireDirection
+end
+
+return SlimeBodyManager
