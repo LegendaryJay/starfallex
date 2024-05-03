@@ -28,7 +28,7 @@ end
 if SERVER then    
     require("libs/command_parser.txt")
     
-    local holoCount = 100
+    local holoCount = 25
     local delay = 1
     local startAlpha = 255
     local endAlpha = 255
@@ -39,7 +39,7 @@ if SERVER then
     
     
     local offsetColor = 0
-    local target = me
+    local target = chip()
     
     
     local holos = {}

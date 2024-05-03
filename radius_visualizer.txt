@@ -1,0 +1,16 @@
+--@name radius visualizer
+--@author Lil'Tugboat
+--@client
+
+radius = 200
+
+size = Vector(radius,radius,radius) * 2
+
+center = hologram.create(chip():localToWorld(Vector(0,0,radius)), Angle(), "models/sprops/misc/axis_plane.mdl")
+
+
+sphere = hologram.create(chip():localToWorld(Vector(0,0,radius)), Angle(), "models/sprops/geometry/sphere_144.mdl")
+sphere:setSize(-size)
+
+box = hologram.create(chip():localToWorld(Vector(0,0,radius)), Angle(), "models/sprops/cuboids/non_set/cube_42x42x42.mdl")
+box:setSize(-size)

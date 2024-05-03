@@ -326,9 +326,10 @@ local products = {
 
 if SERVER then
     controller = Controller:new()
-    plat = SpawnPlatform.create("Oil Refinery", chip():getPos() + Vector( 0, 0, 20), Angle(), "models/props_phx/construct/glass/glass_angle360.mdl", products, controller)
+    plat = SpawnPlatform.create("Oil Refinery", chip():getPos() + Vector( 0, 0, 20), Angle(), "models/props_junk/wood_pallet001a.mdl", products, controller)
     ShopScreen.create(chip():getPos() + Vector(0,-60, 40), Angle( 0, 0 ,45 ), "models/sprops/rectangles_superthin/size_3_5/rect_30x30.mdl", plat, controller)
-
+    
+    
 
     -- Get size info for future spawning
     for index, product in ipairs(products) do
@@ -351,11 +352,14 @@ if SERVER then
         holo:remove()
     end
     
-    removal = DropPlatform.create("Gas Station", chip():getPos() + Vector( 0, -200, 0), Angle(), "models/sprops/rectangles/size_90/rect_90x90x3.mdl", controller)
+    removal = DropPlatform.create("Gas Station", chip():getPos() + Vector( 0, -200, 0), Angle(), "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl", controller)
+    removal.entity:setPhysMaterial("boulder")
     removal.entity:setMaterial("phoenix_storms/stripes")    
     
-    removal = DropPlatform.create("Truck Station", chip():getPos() + Vector( 0, -400, 0), Angle(), "models/sprops/rectangles/size_90/rect_90x90x3.mdl", controller)
+    removal = DropPlatform.create("Truck Station", chip():getPos() + Vector( 0, -400, 0), Angle(), "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl", controller)
     removal.entity:setMaterial("phoenix_storms/stripes")    
+    removal.entity:setPhysMaterial("boulder")
+    
     
     --removal = DropPlatform.create("Repair Store", chip():getPos() + Vector( 0, -400, 0), Angle(), "models/sprops/rectangles/size_90/rect_90x90x3.mdl", controller)
     --removal.entity:setMaterial("phoenix_storms/stripes")
@@ -401,8 +405,9 @@ else
     end
     
     local menu = class("Menu")
-    function menu:initialize(products)
+    function menu:initialize(products, spawnerName)
         self.buttons = {}
+        self.spawnerName = spawnerName
         self.pressed = false
         for i, item in ipairs(products) do
             self.buttons[i] = button:new(20, (i-1)*30+20, string.format(
@@ -443,18 +448,26 @@ else
             end
         end
     end
-    function menu:buy(spawnerName, index)
-        net.start(spawnerName)
+    function menu:buy(index)
+        net.start(self.spawnerName)
             net.writeFloat(index)
         net.send()
     end
 
     
     
-    local myMenu = menu:new(products)
+    
+    function standbyeScreeen()
+        screenx, screeny = render.getResolution()
+
+        render.drawText(screenx * 0.5, screeny * 0.5, "Press the 'USE' Key to shop", TEXT_ALIGN.CENTER)
+    end
+    
+    --local myMenu = menu:new(products, "Oil Refinery")
     hook.add("render", "list", function()
-        myMenu:handleInput()
-        myMenu:drawButtons()
+        standbyeScreeen()
+        --myMenu:handleInput()
+        --myMenu:drawButtons()
 
     end)
 end
