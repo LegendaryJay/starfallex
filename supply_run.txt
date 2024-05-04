@@ -104,8 +104,9 @@ end
 
 
 local ShopScreen = class("ShopScreen")
-function ShopScreen:initialize(name, screen, products, controller)
-    self.name = entity
+function ShopScreen:initialize(name, entity, products, controller)
+    self.name = name
+    self.entity = entity
     self.products = products or {}
     controller:addScreen(self)
     return self
@@ -363,20 +364,28 @@ if SERVER then
     
     --removal = DropPlatform.create("Repair Store", chip():getPos() + Vector( 0, -400, 0), Angle(), "models/sprops/rectangles/size_90/rect_90x90x3.mdl", controller)
     --removal.entity:setMaterial("phoenix_storms/stripes")
-    
 
-
-
-    
-    
-    hook.add("think", "deleteListener", function()
-
-    end)
-    
-
-    
-    
-    
+        hook.add("starfallUsed", "turnScreenOn", function(activator, used) 
+        if used:getClass() == "starfall_screen" then
+            local simpleProducts = {}
+            local name
+            for key, screen in pairs(controller.screens) do
+                if (screen.entity != used) then continue end
+                printTable(screen.products)
+                for key, product in pairs(screen.products) do
+                    simple = {
+                        price = product.price,
+                        location = product.location,
+                        key = product.key,
+                        weight = product.weight,
+                    }
+                    simpleProducts[key] = simple
+                    
+                end
+                break
+            end    
+        end        
+     end)
     
 else
     local button = class("Button")
@@ -459,9 +468,33 @@ else
     
     function standbyeScreeen()
         screenx, screeny = render.getResolution()
-
-        render.drawText(screenx * 0.5, screeny * 0.5, "Press the 'USE' Key to shop", TEXT_ALIGN.CENTER)
+        font = render.createFont("Coolvetica", 30, nil, true)
+        render.setFont(font)
+        render.drawText(screenx * 0.5, screeny * 0.5, "Press the 'USE' key to shop", TEXT_ALIGN.CENTER)
     end
+    
+    hook.add("starfallUsed", "turnScreenOn", function(activator, used) 
+        if used:getClass() == "starfall_screen" then
+            local simpleProducts = {}
+            local name
+            for key, screen in pairs(controller.screens) do
+                if (screen.entity != used) then continue end
+                printTable(screen.products)
+                for key, product in pairs(screen.products) do
+                    simple = {
+                        price = product.price,
+                        location = product.location,
+                        key = product.key,
+                        weight = product.weight,
+                    }
+                    simpleProducts[key] = simple
+                    
+                end
+                break
+            end    
+        end        
+     end)
+
     
     --local myMenu = menu:new(products, "Oil Refinery")
     hook.add("render", "list", function()
