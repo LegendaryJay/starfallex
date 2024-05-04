@@ -9,7 +9,16 @@ function Package:initialize(entity, owner, product, controller)
     self.owner = owner
     self.product = product
     self.entity = entity
+    self.controller = controller
     controller:addPackage(self)
+
+    -- Determine the drop zone based on the product's location
+    local dropLocation = product.location
+    local dropPlatform = controller:getDropPlatform(dropLocation)
+    if dropPlatform then
+        dropPlatform:addPackage(self)
+    end
+
     return self
 end
 
@@ -21,25 +30,38 @@ function Package.create(owner, pos, ang ,product, controller)
     item:setSkin(product.skin or 0)
     return Package:new(item, owner, product, controller)
 end
+function Package:getDistance(pos)
+    if self.entity and self.entity:isValid() then
+        return (self.entity:getPos() - pos):getLength()
+    else
+        self.controller.removePackage(self)
+        return 9999
+    end
+end
 
+function Package:sell()
+    if self.entity and self.entity:isValid() then
+        self.entity:remove()
+    end
+end
 
 
 
 
 local SpawnPlatform = class("SpawnPlatform")
 
-function SpawnPlatform:initialize(name, entity, products, controller)
+function SpawnPlatform:initialize(name, entity, controller)
     self.name = name
     self.pos = entity:getPos()
     self.entity = entity
     self.ang = entity:getAngles()
     self.mdl = entity:getModel()
-    self.products = products or {}
     self.queue = {}
     self.size = entity:obbSize()
     self.zoneSize = Vector(1,1,1) * math.max(self.size[1], self.size[2], self.size[3])
     self:updatePos()
     self.controller = controller
+    self.products = controller:getProductData(self.name)
     
     net.receive(name, function(_, ply)
         index = net.readFloat()
@@ -57,14 +79,14 @@ function SpawnPlatform:updatePos()
     self.max = self.entity:obbMaxs()
 end
 
-function SpawnPlatform.create(name, pos, ang, mdl, products, controller)
+function SpawnPlatform.create(name, pos, ang, mdl, controller)
     local entity = prop.create(pos, ang, mdl, true)
-    return SpawnPlatform:new(name, entity, products, controller)
+    return SpawnPlatform:new(name, entity, controller)
     
 end
 
 function SpawnPlatform:spawnPackage(owner, product) 
-    pos, ang = localToWorld(product.details.spawnPos, Angle(), self.center, self.ang )
+    pos, ang = localToWorld(product.spawnInfo.spawnPos + self.ang:getUp() * self.size[3] * 0.5, Angle(), self.center, self.ang )
     return Package.create(owner, pos, ang, product, self.controller)
 end
 
@@ -73,7 +95,7 @@ function SpawnPlatform:getTop()
 end
 
 function SpawnPlatform:getIsClear(nextProduct)
-    local t = trace.hull(self:getTop(), self:getTop(), product.details.min, product.details.max, self.entity, nil, nil, true)
+    local t = trace.hull(self:getTop(), self:getTop(), product.spawnInfo.min, product.spawnInfo.max, self.entity, nil, nil, true)
     return not t.Hit
 end
 
@@ -87,7 +109,7 @@ function SpawnPlatform:processQueue()
     if #self.queue > 0 and prop.canSpawn() then
         index = self.queue[1][2]
         product = self.products[index]
-        if plat:getIsClear(product) then
+        if self:getIsClear(product) then
             self:spawnNext()
         end
     end 
@@ -104,19 +126,29 @@ end
 
 
 local ShopScreen = class("ShopScreen")
-function ShopScreen:initialize(name, entity, products, controller)
+function ShopScreen:initialize(name, entity, controller)
     self.name = name
     self.entity = entity
-    self.products = products or {}
+    self.products = controller
+    self.controller = controller
+    
+    
+    net.receive("screenRequest_" .. self.entity:entIndex(), function(_, ply)
+        net.start("screenInfo")
+            net.writeTable(self.controller:getProductData(self.name))
+            net.writeString(self.name)
+        net.send(ply)
+    end)
+
     controller:addScreen(self)
     return self
 end
-function ShopScreen.create(pos, ang, mdl, spawner, controller)
+function ShopScreen.create(name, pos, ang, mdl, controller)
     screen = prop.createComponent(pos, ang, "starfall_screen", mdl, true)
     screen:linkComponent(chip())
     screen:setMaterial("editor/flat")
     screen:setMaterial("phoenix_storms/pack2/black")
-    return ShopScreen:new(spawner.name, screen, spawner.products, controller)
+    return ShopScreen:new(name, screen, controller)
 end
 
 
@@ -126,25 +158,25 @@ local DropPlatform = class("DropPlatform")
 function DropPlatform:initialize(name, entity, controller)
     self.name = name
     self.entity = entity
+    self.controller = controller
+    self.packages = {}
+
     self.holo = hologram.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x8.mdl", Vector())
-    
+
     self.size = entity:obbSize()
-    self.zoneSize = Vector(1,1,1) * math.max(self.size[1], self.size[2], self.size[3])
+    self.zoneSize = Vector(1, 1, 1) * math.max(self.size[1], self.size[2], self.size[3])
     self.zoneRadius = self.zoneSize[1] * 0.5
     self.holoScale = self.zoneSize / self.holo:obbSize()
 
     self.holo:setScale(self.holoScale:setX(-self.holoScale[1]))
     self.holo:setMaterial("phoenix_storms/fender_white")
-    self.holo:setColor(Color(255,0, 0, 50))
-    
+    self.holo:setColor(Color(255, 0, 0, 50))
+
     self:updatePos()
-    self.mdl = entity:getModel()
+
+    self:startMonitoringPackages()
     
-    self.controller = controller
-    
-    hook.add("think", self.name .. "_sellCheck", function() self:sellInZone() end)
-    
-    controller:addShop(self)
+    controller:addDrop(self)
     return self
 end
 
@@ -154,45 +186,44 @@ function DropPlatform:updatePos()
     self.ang = self.entity:getAngles()
     self.min = self.entity:obbMins()
     self.max = self.entity:obbMaxs()
-    
+
     self.zoneCenter = self.center + self.entity:getUp() * self.zoneRadius
-    
+
     self.holo:setAngles(self.entity:getAngles())
-    self.holo:setPos(self.entity:localToWorld(-self.holo:obbCenter() * self.holoScale +  Vector(0,0,self.zoneSize[3]) * 0.5))
+    self.holo:setPos(self.entity:localToWorld(-self.holo:obbCenter() * self.holoScale + Vector(0, 0, self.zoneSize[3]) * 0.5))
 end
 
-function DropPlatform.create(name, pos, ang, mdl, products, controller)
+function DropPlatform.create(name, pos, ang, mdl, controller)
     local entity = prop.create(pos, ang, mdl, true)
-    return DropPlatform:new(name, entity, products, controller)
+    return DropPlatform:new(name, entity, controller)
 end
 
-function DropPlatform.sell(package)
-    package.entity:remove()
-    controller:removePackage(package)
+function DropPlatform:addPackage(package)
+    table.insert(self.packages, package)
 end
 
-function DropPlatform:sellInZone()
-    items = self.controller.packagesByDrop[self.name]
-    if items then
-        for index, package in ipairs(items) do
-            if not package or not package.entity:isValid() then continue end
-            local distSqr = (self.zoneCenter - package.entity:obbCenterW()):getLengthSqr()
-            if (distSqr < self.zoneRadius ^ 2) then 
-                self.sell(package)
-                
-            end
+function DropPlatform:startMonitoringPackages()
+    hook.add("think", self.name .. "_sellCheck", function()
+        self:checkAndSellPackages()
+    end)
+end
+
+function DropPlatform:checkAndSellPackages()
+    for _, package in ipairs(self.packages) do
+        if package:getDistance(self.zoneCenter) <= self.zoneRadius then
+            package:sell()
+            self.controller:removePackage(package)
         end
     end
 end
 
-
-
-
-
 local Controller = class("Controller")
 
-function Controller:initialize()
+function Controller:initialize(products)
     self.queue = {}
+    
+    self.products = products
+    self.productSpawnInfo = {}
     
     -- raw tables
     self.drops = {}
@@ -200,142 +231,19 @@ function Controller:initialize()
     self.shops = {}
     self.packages = {}
     
-    -- lookup tables
-    self.screensByShop = {}
-    self.packagesByDrop = {}
+    self.entityLookup = {}
     
+    self:generateProductData()
     
     return self
 end
 
-function Controller:addPackage(package)
-    if not self.packagesByDrop[package.product.location] then
-        self.packagesByDrop[package.product.location] = {}
-    end
-    table.insert(self.packagesByDrop[package.product.location],package)
-    return table.insert(self.packages, package)
-end
 
-function Controller:removePackage(package)
-    table.removeByValue(self.packagesByDrop[package.product.location], package)
-    return table.removeByValue(self.packages, package)
-end
-
-
-
-
-
-function Controller:addShop(shop)        
-    return table.insert(self.shops, package)
-end
-function Controller:addDrop(drop)        
-    return table.insert(self.drops, drop)
-end
-function Controller:addScreen(screen)
-    if not self.screensByShop[screen.name] then
-        self.screensByShop[screen.name] = {}
-    end   
-    table.insert(self.screensByShop[screen.name], screen)
-    return table.insert(self.screens, screen)
-end
-
-function Controller:spawnFactory(data)
-end
-
-function Controller:spawnNext()
---[[
-    data = table.remove(self.queue, 1)
-    self:spawnPackage(data[1], self.products[data[2]]--)
---]]
-    
-end
-
-function Controller:processQueue()
---[[
-    if #self.queue > 0 and prop.canSpawn() then
-        index = self.queue[1][2]
-        product = self.products[index]
-        if plat:getIsClear(product) then
-            self:spawnNext()
-        end
-    end 
-]]
-end
-
-function Controller:queueSpawn(ply, index)
---[[
-    table.insert(self.queue, {type, args})
-    if #self.queue == 1 then
-        hook.add("think", "controller_queue", function() self:processQueue() end)
-    end
-]]
-end
-
-    
-local products = {
-    {
-        model = "models/props_c17/oildrum001.mdl",
-        weight = 250,
-        key = "oil",
-        price = 20,
-        --mat = "models/XQM//Deg360",
-        skin = 2,
-        location = "Repair Store"
-    },
-    {
-        model = "models/props_junk/metalgascan.mdl",
-        weight = 250,
-        key = "gas",
-        price = 20,
-        location = "Gas Station"
-    },
-    {
-        model = "models/props_c17/canister_propane01a.mdl",
-        weight = 200,
-        key = "diesel",
-        price = 20,
-        location = "Truck Station"
-    },
---[[
-    {
-        model = "models/props/de_prodigy/concretebags4.mdl",
-        weight = 200,
-        key = "Concrete Pallette SM",
-        price = 20
-    },
-    {
-        model = "models/props/de_prodigy/concretebags3.mdl",
-        weight = 500,
-        key = "Concrete Pallette MD",
-        price = 20
-    },
-    {
-        model = "models/props/de_prodigy/concretebags2.mdl",
-        weight = 650,
-        key = "Concrete Pallette LG",
-        price = 20
-    },
-    {
-        model = "models/props/de_prodigy/concretebags.mdl",
-        weight = 900,
-        key = "Concrete Pallette XL",
-        price = 20
-    },   
-]]
-}
-    
-
-if SERVER then
-    controller = Controller:new()
-    plat = SpawnPlatform.create("Oil Refinery", chip():getPos() + Vector( 0, 0, 20), Angle(), "models/props_junk/wood_pallet001a.mdl", products, controller)
-    ShopScreen.create(chip():getPos() + Vector(0,-60, 40), Angle( 0, 0 ,45 ), "models/sprops/rectangles_superthin/size_3_5/rect_30x30.mdl", plat, controller)
-    
-    
-
-    -- Get size info for future spawning
-    for index, product in ipairs(products) do
+function Controller:generateProductData()
+        -- Get size info for future spawning
+    for index, product in ipairs(self.products) do
         holo = hologram.create(Vector(), Angle(), product.model)
-        product.details = {
+        info = {
             size = holo:obbSize(),
             min = holo:obbMins(),
             max = holo:obbMaxs(),
@@ -344,48 +252,211 @@ if SERVER then
                 0, 
                 0, 
                 holo:obbSize()[3] * 0.5
-            ) - holo:obbCenter() + Vector(
-                0,
-                0,
-                plat.size[3]*0.5
-            )
+            ) - holo:obbCenter()
         }
         holo:remove()
+        self.productSpawnInfo[index] = info
     end
-    
-    removal = DropPlatform.create("Gas Station", chip():getPos() + Vector( 0, -200, 0), Angle(), "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl", controller)
-    removal.entity:setPhysMaterial("boulder")
-    removal.entity:setMaterial("phoenix_storms/stripes")    
-    
-    removal = DropPlatform.create("Truck Station", chip():getPos() + Vector( 0, -400, 0), Angle(), "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl", controller)
-    removal.entity:setMaterial("phoenix_storms/stripes")    
-    removal.entity:setPhysMaterial("boulder")
-    
-    
-    --removal = DropPlatform.create("Repair Store", chip():getPos() + Vector( 0, -400, 0), Angle(), "models/sprops/rectangles/size_90/rect_90x90x3.mdl", controller)
-    --removal.entity:setMaterial("phoenix_storms/stripes")
+end
 
-        hook.add("starfallUsed", "turnScreenOn", function(activator, used) 
-        if used:getClass() == "starfall_screen" then
-            local simpleProducts = {}
-            local name
-            for key, screen in pairs(controller.screens) do
-                if (screen.entity != used) then continue end
-                printTable(screen.products)
-                for key, product in pairs(screen.products) do
-                    simple = {
-                        price = product.price,
-                        location = product.location,
-                        key = product.key,
+function Controller:getProductData(startLocation)
+    local filteredProducts = {}
+
+    if startLocation then
+        for index, product in ipairs(self.products) do
+            for _, route in ipairs(product.routes) do
+                if route[1] == startLocation then
+                    local spawnInfo = self.productSpawnInfo[index]
+                    table.insert(filteredProducts, {
+                        model = product.model,
                         weight = product.weight,
-                    }
-                    simpleProducts[key] = simple
-                    
+                        key = product.key,
+                        price = product.price,
+                        skin = product.skin,
+                        mat = product.mat,
+                        location = route[2],
+                        finalPrice = route[3],
+                        spawnInfo = spawnInfo,
+                    })
                 end
-                break
-            end    
-        end        
-     end)
+            end
+        end
+    else
+        return self.products
+    end
+    return filteredProducts
+end
+
+
+
+function Controller:removePackage(package)
+    if package then 
+        self:removeEntityInfo(package.id)
+        return table.removeByValue(self.packages, package)
+    end
+end
+
+
+function Controller:addEntityInfo(entity, type, object)
+    self.entityLookup[entity:entIndex()] = {"type", object}
+end
+
+function Controller:getEntityInfo(entity)
+    return self.entityLookup[entity:entIndex()]
+end
+
+function Controller:removeEntityInfo(id)
+    return table.remove(self.entityLookup, id)
+end
+
+
+function Controller:addShop(shop)
+    self:addEntityInfo(shop.entity, "shop", shop)
+    return table.insert(self.shops, package)
+end
+function Controller:addDrop(drop)
+    self:addEntityInfo(drop.entity, "drop", drop)    
+    return table.insert(self.drops, drop)
+end
+function Controller:addScreen(screen)
+    self:addEntityInfo(screen.entity, "screen", screen)   
+    return table.insert(self.screens, screen)
+end
+function Controller:addPackage(package)
+     self:addEntityInfo(package.entity, "package", package)   
+    return table.insert(self.packages, package)
+end
+
+function Controller:queueComponent(type, name, pos, angle)
+    -- Add the component to the queue
+    table.insert(self.queue, {type, name, pos, angle})
+
+    -- Start processing the queue if it's the first item
+    if #self.queue == 1 then
+        hook.add("think", "controller_queue", function() self:processQueue() end)
+    end
+end
+
+function Controller:processQueue()
+    -- If the queue has items and prop spawning is allowed, process the next item
+    if #self.queue > 0 and prop.canSpawn() then
+        self:spawnNext()
+    end
+end
+
+function Controller:spawnNext()
+    -- Extract the next item from the queue
+    local data = table.remove(self.queue, 1)
+    local type, name, pos, angle = unpack(data)
+
+    -- Spawn the component based on the type
+    if type == "DropPlatform" then
+        local item = DropPlatform.create(name, pos, angle, "models/sprops/rectangles_superthin/size_6/rect_96x96.mdl", self)
+        item.entity:setMaterial("phoenix_storms/stripes")    
+    elseif type == "ShopScreen" then
+        ShopScreen.create(name, pos, angle, "models/sprops/rectangles_superthin/size_3_5/rect_30x30.mdl", self)
+    elseif type == "SpawnPlatform" then
+        SpawnPlatform.create(name, pos, angle, "models/props_junk/wood_pallet001a.mdl", self)
+    end
+
+    -- Continue processing the queue
+    if #self.queue > 0 then
+        hook.add("think", "controller_queue", function() self:processQueue() end)
+    else
+        hook.remove("think", "controller_queue")
+    end
+end
+
+function Controller:getDropPlatform(locationName)
+    for _, drop in ipairs(self.drops) do
+        if drop.name == locationName then
+            return drop
+        end
+    end
+    return nil -- Return nil if no matching drop platform is found
+end
+
+--[[
+-- pickup Locations
+"Oil Refinery"
+"Phil's Factory"
+
+
+-- drop locations
+"Repair Store"
+"Gas Station"
+"Truck Station"
+]]
+    
+
+if SERVER then
+    
+    local products = {
+        {
+            model = "models/props_junk/garbage_newspaper001a.mdl",
+            weight = 5,
+            key = "Documents",
+            price = 10,
+            --mat = "models/XQM//Deg360",
+            skin = 0,
+            routes = {
+                {"Spawn Office", "Police Station", 20},
+
+            }
+        },
+        {
+            model = "models/props_vehicles/car002b_physics.mdl",
+            weight = 1000,
+            key = "Junk Car",
+            price = 5500,
+            --mat = "models/XQM//Deg360",
+            skin = 0,
+            routes = {
+                {"Car Dealership", "Junk Shed", 12500},
+
+            }
+        },
+        {
+            model = "models/props_wasteland/cargo_container01.mdl",
+            weight = 2500,
+            key = "Shipping Container",
+            price = 8000,
+            --mat = "models/XQM//Deg360",
+            skin = 0,
+            routes = {
+                {"Shipping Garage", "Junk Shed", 24500},
+
+            }
+        }
+    }
+
+    local controller = Controller:new(products)
+
+
+    -- how to create stuff
+    --controller:queueComponent(type, name, position, angle)
+    
+    -- list of types: "SpawnPlatform", "ShopScreen", "DropPlatform"
+    --names look like whatever. "This is a name", "so is this"
+    
+    -- vectors look like this: Vector(0,0,0)
+    --angles look like this: Angle(0,0,0)
+    
+    
+    -- example command: 
+    controller:queueComponent("SpawnPlatform", "Spawn Office", Vector(-10817, 6119, 1027), Angle())
+    controller:queueComponent("ShopScreen", "Spawn Office", Vector(-10817, 6160, 1070), Angle(0,180,90))
+    controller:queueComponent("DropPlatform", "Police Station", Vector(-7197, 7583, 1027), Angle())
+
+    controller:queueComponent("SpawnPlatform", "Car Dealership", Vector(-7690, -9111, 1024), Angle(0,90,0))
+    controller:queueComponent("ShopScreen", "Car Dealership", Vector(-8048, -9029, 1071), Angle(0,90,90))
+    controller:queueComponent("DropPlatform", "Junk Shed", Vector(-6251, -8393, -515), Angle())
+
+    controller:queueComponent("SpawnPlatform", "Shipping Garage", Vector(4895, 2564, 1088), Angle(0,90,0))
+    controller:queueComponent("ShopScreen", "Shipping Garage", Vector(4895, 2564, 1088), Angle(0,90,90))
+    controller:queueComponent("DropPlatform", "Port", Vector(-6251, -8393, -515), Angle())
+
+
     
 else
     local button = class("Button")
@@ -420,10 +491,11 @@ else
         self.pressed = false
         for i, item in ipairs(products) do
             self.buttons[i] = button:new(20, (i-1)*30+20, string.format(
-                "Buy %s for %s (Weight: %d)",
+                "Buy %s for %s (Weight: %d) Dropoff Zone: %s",
                 item.key,
                 "$" .. item.price,
-                item.weight
+                item.weight,
+                item.location
             ))
         end
     end
@@ -466,41 +538,61 @@ else
     
     
     
-    function standbyeScreeen()
+    local isNearScreen = false
+    local products = {}
+    local shopName = ""
+    local lastScreenUsedTime = 0
+    local SCREEN_USE_COOLDOWN = 1 -- Cooldown time in seconds
+    local lastEntity = chip()
+    local productMenu
+    
+    local function standbyeScreen()
         screenx, screeny = render.getResolution()
         font = render.createFont("Coolvetica", 30, nil, true)
         render.setFont(font)
         render.drawText(screenx * 0.5, screeny * 0.5, "Press the 'USE' key to shop", TEXT_ALIGN.CENTER)
     end
     
-    hook.add("starfallUsed", "turnScreenOn", function(activator, used) 
-        if used:getClass() == "starfall_screen" then
-            local simpleProducts = {}
-            local name
-            for key, screen in pairs(controller.screens) do
-                if (screen.entity != used) then continue end
-                printTable(screen.products)
-                for key, product in pairs(screen.products) do
-                    simple = {
-                        price = product.price,
-                        location = product.location,
-                        key = product.key,
-                        weight = product.weight,
-                    }
-                    simpleProducts[key] = simple
-                    
-                end
-                break
-            end    
-        end        
-     end)
-
+    local function displayProductsMenu()
+        productMenu:drawButtons()
+        productMenu:handleInput()
+    end
     
-    --local myMenu = menu:new(products, "Oil Refinery")
-    hook.add("render", "list", function()
-        standbyeScreeen()
-        --myMenu:handleInput()
-        --myMenu:drawButtons()
+    hook.add("render", "screenRender", function()
+        if productMenu and render.getScreenEntity() == lastEntity then
+            displayProductsMenu()
+        else
+            standbyeScreen()
+        end
+    end)
+    
+    hook.add("starfallUsed", "turnScreenOn", function(activator, used)
+        if activator != player() then return end
+        if not activator:isPlayer() or used:getClass() ~= "starfall_screen" then
+            return
+        end
+        lastEntity = used
+        local currentTime = timer.systime()
+        local timeSinceLastUse = currentTime - lastScreenUsedTime
+    
+        if timeSinceLastUse >= SCREEN_USE_COOLDOWN then
+            lastScreenUsedTime = currentTime
+            net.start("screenRequest_" .. used:entIndex())
+            net.send()
+        end
+    end)
+    
+    net.receive("screenInfo", function()
+        products = net.readTable()
+        shopName = net.readString()
 
+        productMenu = menu:new(products or {}, shopName)
+        hook.add("think", "checkProximity", function()
+            isNearScreen = lastEntity:isValid() and (player():getPos() - lastEntity:getPos()):getLengthSqr() < 200 ^ 2
+            if not isNearScreen then
+                productMenu = nil
+                hook.remove("think", "checkProximity")
+            end
+        end)
     end)
 end
