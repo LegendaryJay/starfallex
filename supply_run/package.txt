@@ -1,0 +1,60 @@
+--@name Package Class
+--@author Lil'Tugboat
+--@shared
+
+local Package = class("SpawnPlatform")
+function Package:initialize(entity, owner, product, controller)
+    self.owner = owner
+    self.product = product
+    self.entity = entity
+    self.controller = controller
+    controller:addPackage(self)
+
+    -- Determine the drop zone based on the product's location
+    local dropLocation = product.location
+    local dropPlatform = controller:getDropPlatform(dropLocation)
+    if dropPlatform then
+        dropPlatform:addPackage(self)
+    end
+
+    return self
+end
+
+function Package.create(owner, pos, ang ,product, controller)   
+    item = prop.create(pos, ang, product.model)
+    item:setMass(product.weight)
+    item:setFrozen(true)
+    item:setMaterial(product.mat or "")
+    item:setSkin(product.skin or 0)
+    item:setColor(product.color or Color(255,255,255))
+    return Package:new(item, owner, product, controller)
+end
+
+function Package:closestPoint(entity, point)
+    returnVal = worldToLocal(point ,Angle(), entity:obbCenterW(), entity:getAngles())
+    halfSize = entity:obbSize() * 0.5
+    local closest_point = {}
+    for i = 1, 3 do
+        returnVal[i] = math.clamp(returnVal[i], -halfSize[i], halfSize[i])  
+    end
+    return localToWorld(returnVal, Angle(), entity:obbCenterW(), entity:getAngles())
+end
+
+function Package:getDistance(pos)
+
+    if self.entity and self.entity:isValid() then
+        
+        return (self:closestPoint(self.entity, pos) - pos):getLength()
+    else
+        self.controller.removePackage(self)
+        return 9999
+    end
+end
+
+function Package:sell()
+    if self.entity and self.entity:isValid() then
+        self.entity:remove()
+    end
+end
+
+return Package

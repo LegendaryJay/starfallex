@@ -1,0 +1,74 @@
+--@name Shop Display
+--@author Lil'Tugboat
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@client
+
+local net = require("SafeNet")
+local Menu = require("supply_run/shop_menu.txt")
+
+-- Client class definition
+local ShopDisplay = class("ShopDisplay")
+
+function ShopDisplay:initialize()
+    self.isNearScreen = false
+    self.products = {}
+    self.shopName = ""
+    self.lastScreenUsedTime = 0
+    self.SCREEN_USE_COOLDOWN = 1 -- seconds
+    self.lastEntity = chip()
+    self.productMenu = nil
+    return self
+end
+
+function ShopDisplay:standbyeScreen()
+    local screenx, screeny = render.getResolution()
+    local font = render.createFont("Coolvetica", 40, nil, true)
+    render.setFont(font)
+    render.drawText(screenx * 0.5, screeny * 0.5, "Press the 'USE' key to shop", TEXT_ALIGN.CENTER)
+end
+
+function ShopDisplay:displayProductsMenu()
+    if self.productMenu then
+        self.productMenu:draw()
+        self.productMenu:handleInput()
+    end
+end
+
+function ShopDisplay:updateScreenRender()
+    if self.productMenu and render.getScreenEntity() == self.lastEntity then
+        self:displayProductsMenu()
+    else
+        self:standbyeScreen()
+    end
+end
+
+function ShopDisplay:turnScreenOn(activator, used)
+    if activator != player() then return end
+    if not activator:isPlayer() or used:getClass() ~= "starfall_screen" then
+        return
+    end
+    self.lastEntity = used
+    local currentTime = timer.realtime()
+    local timeSinceLastUse = currentTime - self.lastScreenUsedTime
+
+    if timeSinceLastUse >= self.SCREEN_USE_COOLDOWN then
+        self.lastScreenUsedTime = currentTime
+        net.start("screenRequest_" .. used:entIndex())
+        net.send()
+    end
+end
+
+function ShopDisplay:handleNetReceive()
+    self.products = net.readTable()
+    self.shopName = net.readString()
+    self.productMenu = Menu:new(self.products or {}, self.shopName)
+    hook.add("think", "checkProximity", function()
+        self.isNearScreen = self.lastEntity:isValid() and (player():getPos() - self.lastEntity:getPos()):getLengthSqr() < 200 ^ 2
+        if not self.isNearScreen then
+            self.productMenu = nil
+            hook.remove("think", "checkProximity")
+        end
+    end)
+end
+
+return ShopDisplay

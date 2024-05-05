@@ -1,0 +1,31 @@
+--@name Spawn Shop Screen Class
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@shared
+local net = require("SafeNet")
+local ShopScreen = class("ShopScreen")
+function ShopScreen:initialize(name, entity, controller)
+    self.name = name
+    self.entity = entity
+    self.products = controller
+    self.controller = controller
+    
+    
+    net.receive("screenRequest_" .. self.entity:entIndex(), function(_, ply)
+        net.start("screenInfo")
+            net.writeTable(self.controller:getProductData(self.name))
+            net.writeString(self.name)
+        net.send(ply)
+    end)
+
+    controller:addScreen(self)
+    return self
+end
+function ShopScreen.create(name, pos, ang, mdl, controller)
+    screen = prop.createComponent(pos, ang, "starfall_screen", mdl, true)
+    screen:linkComponent(chip())
+    screen:setMaterial("editor/flat")
+    screen:setMaterial("phoenix_storms/pack2/black")
+    return ShopScreen:new(name, screen, controller)
+end
+
+return ShopScreen

@@ -1,0 +1,124 @@
+--@name Spawn Platform Class
+--@author Lil'Tugboat
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@includedir supply_run
+--@shared
+
+local Package = require("supply_run/package.txt")
+local net = require("SafeNet")
+local SpawnPlatform = class("SpawnPlatform")
+
+function SpawnPlatform:initialize(name, pos, ang, entity, controller)
+    self.name = name
+    self.pos = pos
+    self.entity = (entity and entity:isValid()) and entity or nil
+    self.ang = ang
+    self:updatePos()
+    
+    
+    self.queue = {}
+    self.size = isValid(entity) and entity:obbSize() or Vector()
+    self.zoneSize = Vector(1,1,1) * math.max(self.size[1], self.size[2], self.size[3])
+    self:updatePos()
+    self.controller = controller
+    self.products = controller:getProductData(self.name)
+    
+    net.receive(name, function(_, ply)
+        index = net.readFloat()
+        self:queueSpawn(ply, index)
+    end)
+    controller:addShop(self)
+    return self
+end
+
+function SpawnPlatform:updatePos()
+    if self.entity and self.entity:isValid() then
+        self.center = self.entity:obbCenterW()
+        self.pos = self.entity:getPos()
+        self.ang = self.entity:getAngles()
+    else
+        self.center = self.pos
+    end
+        
+end
+
+function SpawnPlatform.create(name, pos, ang, mdl, controller)
+    local entity = nil
+    if mdl != "" and mdl != nil then
+        entity = prop.create(pos, ang, mdl, true)
+        entity:setUnbreakable(true)
+    end
+    return SpawnPlatform:new(name, pos, ang, entity, controller)
+    
+end
+
+function SpawnPlatform:getSpawnPos(product)
+    return localToWorld(product.spawnInfo.spawnPos + self.ang:getUp() * self.size[3] * 0.5, Angle(), self.center, self.ang )
+end
+
+function SpawnPlatform:spawnPackage(owner, product) 
+    pos, ang = self:getSpawnPos(product)
+    return Package.create(owner, pos, ang, product, self.controller)
+end
+
+function SpawnPlatform:getTop()
+    return self.center + self.ang:getUp() * self.size[3] * 0.5
+end
+
+function SpawnPlatform:getObstructionPos(nextProduct)
+    pos, ang = self:getSpawnPos(product)
+    --local t = trace.intersectRayWithOBB(self:getTop(), self:getTop() , ang, product.spawnInfo.min:setZ(0), product.spawnInfo.max:setZ(0))
+    local t = trace.hull(self:getTop(), self:getTop() + self.ang:getUp() * product.spawnInfo.size[3], product.spawnInfo.min:setZ(0), product.spawnInfo.max:setZ(0), self.entity, nil, nil, true)
+    if t.Hit then
+        return t.HitPos 
+    end
+    return nil
+end
+
+function SpawnPlatform:spawnNext()
+    data = table.remove(self.queue, 1)
+    self:spawnPackage(data[1], self.products[data[2]])
+    
+end
+
+function SpawnPlatform:processQueue()
+    if #self.queue > 0 and prop.canSpawn() then
+        index = self.queue[1][2]
+        product = self.products[index]
+        local obsPos = self:getObstructionPos(product)
+        if not obsPos then
+            if self.problemHolo and self.problemHolo:isValid() then 
+                self.packageHolo:remove()
+                self.problemHolo:remove()
+            end
+            self:spawnNext()
+
+        else
+            pos, ang  = self:getSpawnPos(product)
+            if not self.problemHolo or not self.problemHolo:isValid() then
+                self.problemHolo = hologram.create(pos,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
+                local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0)
+                self.problemHolo:setSize(size)
+                self.problemHolo:setMaterial("phoenix_storms/fender_white")
+                self.problemHolo:setColor(Color(255, 0, 0, 255))
+            
+                self.packageHolo = hologram.create(pos,ang, product.model) 
+                self.packageHolo:setColor(Color(255, 255, 255, 255))
+            end
+            
+            self.problemHolo:setPos(obsPos + Vector(math.random(),math.random(),math.random()))
+            self.packageHolo:setClip(1, true, obsPos, -self.ang:getUp())
+            
+        end
+            
+    end 
+end
+
+function SpawnPlatform:queueSpawn(ply, index)
+    table.insert(self.queue, {ply, index})
+    if #self.queue == 1 then
+        hook.add("think", self.name .. "_queue", function() self:processQueue() end)
+    end
+end
+
+return SpawnPlatform

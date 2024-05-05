@@ -1,0 +1,76 @@
+--@name Drop Platform
+--@author Lil'Tugboat
+--@shared
+
+local DropPlatform = class("DropPlatform")
+function DropPlatform:initialize(name, pos, ang, entity, controller)
+    self.name = name
+    self.entity = entity
+    self.pos = pos
+    self.ang = ang
+    self.controller = controller
+    self.packages = {}
+
+    self.holo = hologram.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x8.mdl", Vector())
+    self.zoneRadius = controller.settings.DropPlatform.radius or 20
+    self.zoneSize = Vector(1, 1, 1) * self.zoneRadius * 2
+    self.holoScale = self.zoneSize / self.holo:obbSize()
+
+    self.holo:setScale(self.holoScale:setX(-self.holoScale[1]))
+    self.holo:setMaterial("phoenix_storms/fender_white")
+    self.holo:setColor(Color(255, 0, 0, 50))
+
+    self:updatePos()
+
+    self:startMonitoringPackages()
+    
+    controller:addDrop(self)
+    return self
+end
+
+function DropPlatform:updatePos()
+    local center = self.pos
+    if isValid(self.entity) then 
+        self.pos = self.entity:getPos()
+        self.ang = self.entity:getAngles()
+        center = self.entity:obbCenterW() + self.ang:getUp() * self.entity:obbSize()[3] * 0.5
+    end
+    
+    self.zoneCenter = center + self.ang:getUp() * self.zoneRadius
+    
+    pos, ang = localToWorld(-self.holo:obbCenter() * self.holoScale, Angle(), self.zoneCenter, self.ang)
+    self.holo:setAngles(self.ang)
+    self.holo:setPos(pos)
+end
+
+function DropPlatform.create(name, pos, ang, mdl, controller)
+    local entity = nil
+    if mdl != "" and mdl != nil then
+        entity = prop.create(pos, ang, mdl, true)
+        entity:setUnbreakable(true)
+    end
+    return DropPlatform:new(name, pos, ang, entity, controller)
+end
+
+function DropPlatform:addPackage(package)
+    table.insert(self.packages, package)
+end
+
+function DropPlatform:startMonitoringPackages()
+    hook.add("think", self.name .. "_sellCheck", function()
+        self:checkAndSellPackages()
+    end)
+end
+
+function DropPlatform:checkAndSellPackages()
+    for _, package in ipairs(self.packages) do
+        if isValid(package.entity) then
+            if package:getDistance(self.zoneCenter) <= self.zoneRadius then
+                package:sell()
+                self.controller:removePackage(package)
+            end
+        end
+    end
+end
+
+return DropPlatform
