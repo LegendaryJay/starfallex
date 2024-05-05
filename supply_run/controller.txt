@@ -10,7 +10,7 @@ local DropPlatform = require("supply_run/drop_platform.txt")
 
 local Controller = class("Controller")
 
-function Controller:initialize(products, settings)
+function Controller:initialize(products, settings, placements)
     self.queue = {}
     
     self.settings = settings
@@ -30,6 +30,15 @@ function Controller:initialize(products, settings)
     self.entityLookup = {}
     
     self:generateProductData()
+    if placements then
+        if placements.map then
+            for _, p in pairs(placements.state) do
+                self:queueComponent(p.type, p.name, p.pos, p.ang)
+            end
+        else
+            print("Incorrect Map")
+        end
+    end
     
     return self
 end
@@ -57,25 +66,16 @@ end
 
 function Controller:getProductData(startLocation)
     local filteredProducts = {}
-
     if startLocation then
         for index, product in ipairs(self.products) do
             for _, route in ipairs(product.routes) do
-
                 if route[1] == startLocation then
-                    
                     local spawnInfo = self.productSpawnInfo[index]
-                    table.insert(filteredProducts, {
-                        model = product.model,
-                        weight = product.weight,
-                        name = product.name,
-                        price = route[3],
-                        skin = product.skin,
-                        mat = product.mat,
-                        pay = route[4],
-                        location = route[2],
-                        spawnInfo = spawnInfo,
-                    })
+                        product.price = route[3]
+                        product.pay = route[4]
+                        product.location = route[2]
+                        product.spawnInfo = spawnInfo
+                    table.insert(filteredProducts, product)
                 end
             end
         end

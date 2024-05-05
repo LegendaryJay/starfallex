@@ -8,6 +8,7 @@ local net = require("SafeNet")
 local Controller = require("supply_run/controller.txt")
 
 
+
 if SERVER then
     
     local products = {
@@ -15,7 +16,8 @@ if SERVER then
             model = "models/props_junk/garbage_newspaper001a.mdl",
             weight = 5,
             name = "Documents",
-            --mat = "models/XQM//Deg360",
+            color = Color(255, 0,0),
+            mat = "models/XQM//Deg360",
             skin = 0,
             routes = {
                 {"Spawn Office", "Police Station", 20, 100},
@@ -58,6 +60,7 @@ if SERVER then
         },
         ShopScreen = {
             model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
+            mat =   "editor/flat"
         },
         SpawnPlatform = {
             model = "" -- "models/props_junk/wood_pallet001a.mdl",
@@ -66,14 +69,47 @@ if SERVER then
             startingCash = 200
         
         }
-    }    
+    }
+    
+    local placements = {
+        map = "gm_blocksand",
+        state = {
+            {
+                type = "SpawnPlatform",
+                name = "Spawn Office",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = chip():getPos() + Vector(200, 0, 0)
+            },
+            {
+                type = "ShopScreen",
+                name = "Spawn Office",
+                ang = Angle(0, 0, 90),  -- Adjust angle as needed
+                pos = chip():getPos() + Vector(0, 30, 70)
+            },
+            {
+                type = "DropPlatform",
+                name = "Junk Shed",
+                ang = Angle(),  -- Default angle
+                pos = chip():getPos() + Vector(0, -100, 100)
+            },
+            {
+                type = "DropPlatform",
+                name = "Police Station",
+                ang = Angle(),  -- Default angle
+                pos = chip():getPos() + Vector(0, -200, 100)
+            }
+        }
+    }
+        
+    
+    -- buttons/button14.wav -- happy beep 
+    -- common/wpn_denyselect.wav -- sad beep
+    -- buttons/button18.wav -- sad beep
+    -- hitmarkers/mlghit.wav spawn?
+    -- hl1/ambience/labdrone2.wav trouble spawning?
+    -- NPC_Alyx.Vend_Coin sale?
 
-    local controller = Controller:new(products, settings)
-
-    controller:queueComponent("SpawnPlatform", "Spawn Office", chip():getPos() + Vector(200,0,0), Angle())
-    controller:queueComponent("ShopScreen", "Spawn Office", chip():getPos() + Vector(0,30,70), Angle(0,0,90))
-    controller:queueComponent("DropPlatform", "Junk Shed", chip():getPos()+ Vector(0,-100,100), Angle())
-    controller:queueComponent("DropPlatform", "Police Station", chip():getPos()+ Vector(0,-200,100), Angle())
+    local controller = Controller:new(products, settings, placements)
 
 
     

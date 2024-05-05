@@ -97,7 +97,7 @@ function SpawnPlatform:processQueue()
             pos, ang  = self:getSpawnPos(product)
             if not self.problemHolo or not self.problemHolo:isValid() then
                 self.problemHolo = hologram.create(pos,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
-                local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0)
+                local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 1)
                 self.problemHolo:setSize(size)
                 self.problemHolo:setMaterial("phoenix_storms/fender_white")
                 self.problemHolo:setColor(Color(255, 0, 0, 255))

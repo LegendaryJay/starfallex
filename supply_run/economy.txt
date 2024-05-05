@@ -1,0 +1,50 @@
+--@name Economy
+--@author Lil'Tugboat
+--@shared
+
+local Economy = class("Economy")
+
+function Economy:initialize()
+    self.balances = {}  -- To hold each user's balance
+    return self
+end
+
+function Economy:createUser(userId)
+    if not self.balances[userId] then
+        self.balances[userId] = 0
+    end
+end
+
+function Economy:getBalance(userId)
+    return self.balances[userId] or 0
+end
+
+function Economy:addMoney(userId, amount)
+    if not self.balances[userId] then
+        self:createUser(userId)  
+    end
+    self.balances[userId] = self.balances[userId] + amount
+end
+
+function Economy:removeMoney(userId, amount)
+    if not self.balances[userId] then
+        self:createUser(userId)
+    end
+    if self.balances[userId] >= amount then
+        self.balances[userId] = self.balances[userId] - amount
+        return true
+    else
+        return false  
+    end
+end
+
+function Economy:transferMoney(fromUserId, toUserId, amount)
+    if self:removeMoney(fromUserId, amount) then
+        self:addMoney(toUserId, amount)
+        return true
+    else
+        return false 
+    end
+end
+
+return Economy

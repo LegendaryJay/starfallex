@@ -23,8 +23,6 @@ end
 function ShopScreen.create(name, pos, ang, mdl, controller)
     screen = prop.createComponent(pos, ang, "starfall_screen", mdl, true)
     screen:linkComponent(chip())
-    screen:setMaterial("editor/flat")
-    screen:setMaterial("phoenix_storms/pack2/black")
     return ShopScreen:new(name, screen, controller)
 end
 
