@@ -1,12 +1,11 @@
 --@name Spawn Platform Class
 --@author Lil'Tugboat
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
---@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/supply_run/package.txt as Package
+--@includedir supply_run
 --@shared
 
-local Package = require("Package")
+local Package = require("supply_run/package.txt")
 local net = require("SafeNet")
-
 local SpawnPlatform = class("SpawnPlatform")
 
 function SpawnPlatform:initialize(name, pos, ang, entity, controller)

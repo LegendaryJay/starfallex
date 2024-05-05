@@ -1,15 +1,12 @@
 --@name Controller Class
 --@author Lil'Tugboat
---@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/supply_run/package.txt as Package
---@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/supply_run/spawn_platform.txt as Spawner
---@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/supply_run/shop_screen as Screen
---@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/supply_run/drop_platform.txt as Drop
+--@includedir supply_run
 --@shared
 
-local Package = require("Package")
-local SpawnPlatform = require("Spawner")
-local ShopScreen = require("Screen")
-local DropPlatform = require("Drop")
+local Package = require("supply_run/package.txt")
+local SpawnPlatform = require("supply_run/spawn_platform.txt")
+local ShopScreen = require("supply_run/shop_screen.txt")
+local DropPlatform = require("supply_run/drop_platform.txt")
 
 local Controller = class("Controller")
 

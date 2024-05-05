@@ -1,11 +1,10 @@
 --@name Shop Display
 --@author Lil'Tugboat
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
---@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/supply_run/shop_menu.txt as Menu
 --@client
 
 local net = require("SafeNet")
-local Menu = require("Menu")
+local Menu = require("supply_run/shop_menu.txt")
 
 -- Client class definition
 local ShopDisplay = class("ShopDisplay")
