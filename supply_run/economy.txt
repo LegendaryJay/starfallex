@@ -4,22 +4,26 @@
 
 local Economy = class("Economy")
 
-function Economy:initialize()
+function Economy:initialize(initialBalance)
+    self.initialBalance = initialBalance or 0
     self.balances = {}  -- To hold each user's balance
     return self
 end
 
 function Economy:createUser(userId)
+    print("created ".. userId)
     if not self.balances[userId] then
-        self.balances[userId] = 0
+        self.balances[userId] = self.initialBalance
     end
 end
 
 function Economy:getBalance(userId)
-    return self.balances[userId] or 0
+    print("Balance: " .. self.balances[userId])
+    return self.balances[userId] or self.initialBalance
 end
 
 function Economy:addMoney(userId, amount)
+    print("Add $" .. amount .. " to " .. userId)
     if not self.balances[userId] then
         self:createUser(userId)  
     end
@@ -27,6 +31,7 @@ function Economy:addMoney(userId, amount)
 end
 
 function Economy:removeMoney(userId, amount)
+    print("Removed $" .. amount .. " from " .. userId)
     if not self.balances[userId] then
         self:createUser(userId)
     end

@@ -25,7 +25,11 @@ function SpawnPlatform:initialize(name, pos, ang, entity, controller)
     
     net.receive(name, function(_, ply)
         index = net.readFloat()
-        self:queueSpawn(ply, index)
+        local product = self.products[index]
+        local cost = product.price
+        if controller.economy:removeMoney(ply:getSteamID(), cost) then
+            self:queueSpawn(ply:getSteamID(), index)
+        end
     end)
     controller:addShop(self)
     return self

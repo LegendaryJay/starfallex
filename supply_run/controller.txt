@@ -7,6 +7,7 @@ local Package = require("supply_run/package.txt")
 local SpawnPlatform = require("supply_run/spawn_platform.txt")
 local ShopScreen = require("supply_run/shop_screen.txt")
 local DropPlatform = require("supply_run/drop_platform.txt")
+local Economy = require("supply_run/economy.txt")
 
 local Controller = class("Controller")
 
@@ -39,6 +40,7 @@ function Controller:initialize(products, settings, placements)
             print("Incorrect Map")
         end
     end
+    self.economy = Economy:new(settings.Economy.startingCash or 0)
     
     return self
 end
