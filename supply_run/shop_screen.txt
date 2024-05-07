@@ -4,20 +4,22 @@
 local net = require("SafeNet")
 local ShopScreen = class("ShopScreen")
 function ShopScreen:initialize(name, entity, controller)
+    self.type = "ShopScreen"
     self.name = name
     self.entity = entity
-    self.products = controller
+    self.products = {}
     self.controller = controller
     
     
     net.receive("screenRequest_" .. self.entity:entIndex(), function(_, ply)
         net.start("screenInfo")
-            net.writeTable(self.controller:getProductData(self.name))
-            net.writeString(self.name)
+            item = self.controller:getProductData(self.name)
+            net.writeTable(item)   
+            net.writeString(self.name)   
         net.send(ply)
     end)
 
-    controller:addScreen(self)
+    controller:addEntityInfo(self)
     return self
 end
 function ShopScreen.create(name, pos, ang, mdl, controller)

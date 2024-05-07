@@ -1,0 +1,54 @@
+--@name EntityManager Class
+--@author Lil'Tugboat
+--@shared
+
+local EntityManager = class("EntityManager")
+
+function EntityManager:initialize()
+    self.entityLookup = {}
+end
+
+-- Adds an entity to the manager, tracking it by its entity index
+function EntityManager:addEntity(object)
+    if object.entity and object.entity:isValid() then
+        self.entityLookup[object.entity:entIndex()] = object
+    end
+end
+
+-- Removes an entity from the manager using its ID
+function EntityManager:removeEntity(id)
+    if self.entityLookup[id] and self.entityLookup[id]:isValid() then
+        self.entityLookup[id] = nil
+    end
+end
+
+-- Retrieves an entity's info by its entity object
+function EntityManager:getEntityInfo(entity)
+    if entity and entity:isValid() then
+        return self.entityLookup[entity:entIndex()]
+    end
+    return nil
+end
+
+-- Modifies an entity with the provided settings
+function EntityManager:modifyEntity(entity, settings)
+    if entity and entity:isValid() then
+        if settings.mat and settings.mat ~= "" then
+            entity:setMaterial(settings.mat)
+        end
+        if settings.color then
+            entity:setColor(settings.color)
+        end
+        if settings.skin then
+            entity:setSkin(settings.skin)
+        end
+        if settings.solid then
+            entity:setSolid(settings.solid)
+        end
+        if settings.weight then
+            entity:setMass(settings.weight)
+        end
+    end
+end
+
+return EntityManager

@@ -1,0 +1,49 @@
+--@name 3d movement prototype
+--@author Lil'Tugboat
+--@server
+
+local chair = prop.createSent(chip():getPos() + Vector(0,0,50), Angle(), "Seat_Airboat", true)
+local eyepod = prop.createSent(chip():getPos() + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
+    ClampX = 0,
+    ClampXMax = 0,
+    ClampXMin = 0,
+    ClampY = 0,
+    ClampYMax = 0,
+    ClampYMin = 0,
+    DefaultToZero = 1,
+    Model = "models/jaanus/wiretool/wiretool_siren.mdl",
+    ShowRateOfChange = 1,
+})
+local eyelink = wire.getWirelink(eyepod)
+chair:setNocollideAll(true)
+
+--[[
+-- out
+1	=	X
+2	=	wirelink
+3	=	Y
+4	=	XY
+
+
+--in
+1	=	Enable
+2	=	SetPitch
+3	=	SetYaw
+4	=	SetViewAngle
+5	=	UnfreezePitch
+6	=	UnfreezeYaw
+]]
+
+
+print(chair)
+
+hook.add("think", "thing", function() 
+    local driver = chair:getDriver()
+    if driver and driver:isValid() and chair then
+        eyelink.Enable = 1
+        notification.addLegacy(tostring(eyelink.XY), NOTIFY.GENERIC, 1)
+    else
+        eyelink.Enable = 0
+    end
+
+end)

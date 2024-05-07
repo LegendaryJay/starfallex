@@ -8,195 +8,146 @@ local SpawnPlatform = require("supply_run/spawn_platform.txt")
 local ShopScreen = require("supply_run/shop_screen.txt")
 local DropPlatform = require("supply_run/drop_platform.txt")
 local Economy = require("supply_run/economy.txt")
+local StateRecorder = require("supply_run/state_recorder.txt")
+local EntityManager = require("supply_run/entity_manager.txt")
+local ProductManager = require("supply_run/product_manager.txt")
+local QueueManager = require("supply_run/queue_manager.txt")
 
 local Controller = class("Controller")
-
-function Controller:initialize(products, settings, placements)
+function Controller:initialize(products, settings, snapshot)
     self.queue = {}
+
+    self.productManager = ProductManager:new(products)
+    self.entityManager = EntityManager:new() 
+    self.queueManager = QueueManager:new(self)
     
-    self.settings = settings
-    self.settings.DropPlatform = self.settings.DropPlatform or {}
-    self.settings.ShopScreen = self.settings.ShopScreen or {}
-    self.settings.SpawnPlatform = self.settings.SpawnPlatform or {}
+    self.stateRecorder = StateRecorder:new()
     
-    self.products = products
-    self.productSpawnInfo = {}
+    self:setRecordSet("products", products)
+    self:setRecordSet("settings", settings)
+    self:setRecordSet("locationData", placements)
     
-    -- raw tables
-    self.drops = {}
-    self.screens = {}
-    self.shops = {}
-    self.packages = {}
+    self.economy = Economy:new(settings.Economy.startingCash or 0)
     
-    self.entityLookup = {}
-    
-    self:generateProductData()
-    if placements then
-        if placements.map then
-            for _, p in pairs(placements.state) do
-                self:queueComponent(p.type, p.name, p.pos, p.ang)
-            end
-        else
-            print("Incorrect Map")
+    if snapshot then
+        for _, data in pairs(snapshot.state) do
+            self:queueComponent(data)
         end
     end
-    self.economy = Economy:new(settings.Economy.startingCash or 0)
     
     return self
 end
 
 
-function Controller:generateProductData()
-        -- Get size info for future spawning
-    for index, product in ipairs(self.products) do
-        holo = hologram.create(Vector(), Angle(), product.model)
-        info = {
-            size = holo:obbSize(),
-            min = holo:obbMins(),
-            max = holo:obbMaxs(),
-            center = holo:obbCenter(),
-            spawnPos = Vector(
-                0, 
-                0, 
-                holo:obbSize()[3] * 0.5
-            ) - holo:obbCenter()
-        }
-        holo:remove()
-        self.productSpawnInfo[index] = info
-    end
+-- product stuff
+function Controller:addProductInfo(object)
+    self.productManager:addProductInfo(object)
 end
-
 function Controller:getProductData(startLocation)
-    local filteredProducts = {}
-    if startLocation then
-        for index, product in ipairs(self.products) do
-            for _, route in ipairs(product.routes) do
-                if route[1] == startLocation then
-                    local spawnInfo = self.productSpawnInfo[index]
-                        product.price = route[3]
-                        product.pay = route[4]
-                        product.location = route[2]
-                        product.spawnInfo = spawnInfo
-                    table.insert(filteredProducts, product)
-                end
-            end
-        end
-    else
-        return self.products
-    end
-    return filteredProducts
+    return self.productManager:getProductData(startLocation)
+end
+function Controller:getShopProduct(shopName, key)
+    return self.productManager:getShopProduct(shopName, key)
 end
 
-
-
-function Controller:removePackage(package)
-    if package then 
-        self:removeEntityInfo(package.id)
-        return table.removeByValue(self.packages, package)
-    end
+-- entity info
+function Controller:addEntityInfo(object)
+    self.entityManager:addEntity(object)
 end
-
-
-function Controller:addEntityInfo(entity, type, object)
-    self.entityLookup[entity:entIndex()] = {"type", object}
-end
-
 function Controller:getEntityInfo(entity)
-    return self.entityLookup[entity:entIndex()]
+    return self.entityManager:getEntityInfo(entity)
 end
-
 function Controller:removeEntityInfo(id)
-    return table.remove(self.entityLookup, id)
+    self.entityManager:removeEntity(id)
 end
-
-
-function Controller:addShop(shop)
-    if isValid(shop.entity) then
-        self:addEntityInfo(shop.entity, "shop", shop)
-    end
-    return table.insert(self.shops, package)
-end
-function Controller:addDrop(drop)
-    if isValid(drop.entity) then
-        self:addEntityInfo(drop.entity, "drop", drop)
-    end
-    return table.insert(self.drops, drop)
-end
-function Controller:addScreen(screen)
-    self:addEntityInfo(screen.entity, "screen", screen)
-    return table.insert(self.screens, screen)
-end
-function Controller:addPackage(package)
-     self:addEntityInfo(package.entity, "package", package)   
-    return table.insert(self.packages, package)
-end
-
-function Controller:queueComponent(type, name, pos, angle)
-    -- Add the component to the queue
-    table.insert(self.queue, {type, name, pos, angle})
-
-    -- Start processing the queue if it's the first item
-    if #self.queue == 1 then
-        hook.add("think", "controller_queue", function() self:processQueue() end)
-    end
-end
-
-function Controller:processQueue()
-    -- If the queue has items and prop spawning is allowed, process the next item
-    if #self.queue > 0 and prop.canSpawn() then
-        self:spawnNext()
-    end
-end
-
 function Controller:modifyEntity(entity, settings)
-    if isValid(entity) then
-        if settings.mat != nil and settings.mat != "" then
-            entity:setMaterial(settings.mat)
-        end
-        if settings.color != nil then
-            entity:setColor(settings.color)
-        end
-        if settings.skin != nil then
-            entity:setSkin(settings.skin)
-        end
-        if settings.solid != nil then
-            entity:setSolid(settings.solid)
-        end
-    end
-
+    self.entityManager:modifyEntity(entity, settings)
 end
 
-function Controller:spawnNext()
-    -- Extract the next item from the queue
-    local data = table.remove(self.queue, 1)
-    local type, name, pos, angle = unpack(data)
+-- Records
+function Controller:setRecord(type, index, data)
+    self.stateRecorder:setRecord(type, index, data)
+end
 
-    -- Spawn the component based on the type
-    if type == "DropPlatform" then
-        local item = DropPlatform.create(name, pos, angle, self.settings.DropPlatform.model or "", self)
-        self:modifyEntity(item.entity, self.settings.DropPlatform)   
-    elseif type == "ShopScreen" then
-        local item = ShopScreen.create(name, pos, angle, self.settings.ShopScreen.model or "", self)
-        self:modifyEntity(item.entity, self.settings.ShopScreen)   
-    elseif type == "SpawnPlatform" then
-        local item = SpawnPlatform.create(name, pos, angle,  self.settings.SpawnPlatform.model or "", self)
-        self:modifyEntity(item.entity, self.settings.SpawnPlatform)  
-    end
+function Controller:setRecordSet(type, data)
+    self.stateRecorder:setRecordSet(type, data)
+end
 
-    -- Continue processing the queue
-    if #self.queue > 0 then
-        hook.add("think", "controller_queue", function() self:processQueue() end)
+function Controller:getRecord(type, index)
+    return self.stateRecorder:getRecord(type, index)
+end
+
+function Controller:getRecordByFunction(type, func)
+    return self.stateRecorder:getRecordByFunction(type, func)
+end
+
+function Controller:getRecordSet(type, func)
+    return self.stateRecorder:getRecordSet(type, func)
+end
+function Controller:removeRecord(type, index, data)
+    return self.stateRecorder:removeRecord(type, index, data)
+end
+
+function Controller:modifyRecord(type, index, newData)
+    local record = self.stateRecorder:getRecord(type, index)
+    if record then
+        self.stateRecorder:setRecord(type, index, newData)
     else
-        hook.remove("think", "controller_queue")
+        error("Record not found")
     end
 end
 
-function Controller:getDropPlatform(locationName)
-    for _, drop in ipairs(self.drops) do
-        if drop.name == locationName then
-            return drop
+
+-- Economy
+function Controller:createUser(userId)
+    self.economy:createUser(userId)
+end
+
+function Controller:getUserBalance(userId)
+    return self.economy:getBalance(userId)
+end
+
+function Controller:addMoneyToUser(userId, amount)
+    self.economy:addMoney(userId, amount)
+end
+
+function Controller:removeMoneyFromUser(userId, amount)
+    return self.economy:removeMoney(userId, amount)
+end
+
+function Controller:transferMoneyBetweenUsers(fromUserId, toUserId, amount)
+    return self.economy:transferMoney(fromUserId, toUserId, amount)
+end
+
+-- Queue stuff
+function Controller:queueComponent(data, condition)
+    self.queueManager:queueComponent(data, condition)
+end
+function Controller:spawnNext()
+    local nextItem = self.queueManager:getNextItem()
+    if nextItem then
+        local componentCreators = {
+            DropPlatform = DropPlatform.create,
+            ShopScreen = ShopScreen.create,
+            SpawnPlatform = SpawnPlatform.create,
+            Package = Package.create
+        }
+        local creator = componentCreators[nextItem.type]
+        if creator then
+            local settings = self:getRecord("settings")
+            local mergedSettings = table.inherit(nextItem, settings[nextItem.type] or {})
+            local item = creator(nextItem.name, nextItem.pos, nextItem.ang, nextItem.model or "", self, mergedSettings)
+            if item and item.entity then
+                self:modifyEntity(item.entity, mergedSettings)
+            end
+            if item then
+                self:setRecord(nextItem.type, nil, item)
+            end
+        else
+            print("Error: No creator found for component type", nextItem.type)
         end
     end
-    return nil -- Return nil if no matching drop platform is found
 end
+
+
 return Controller

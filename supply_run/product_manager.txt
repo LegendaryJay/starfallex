@@ -1,0 +1,66 @@
+--@name Product Management
+--@author Lil'Tugboat
+--@shared
+local ProductManager = class("ProductManager")
+
+function ProductManager:initialize(products)
+    self.products = products
+    self:generateProductData()
+end
+
+function ProductManager:generateProductData()
+    for index, product in ipairs(self.products) do
+        local holo = hologram.create(Vector(), Angle(), product.model)
+        product.spawnInfo = {}
+        product.spawnInfo.size = holo:obbSize()
+        product.spawnInfo.min = holo:obbMins()
+        product.spawnInfo.max = holo:obbMaxs()
+        product.spawnInfo.center = holo:obbCenter()
+        product.spawnInfo.spawnPos = Vector(0, 0, holo:obbSize()[3] * 0.5) - holo:obbCenter()
+        holo:remove()
+    end
+end
+
+function ProductManager:getRouteCopy(product, route)
+    local returnProduct = table.copy(product)
+    returnProduct.origin = route.origin
+    returnProduct.cost = route.cost
+    returnProduct.pay = route.pay
+    returnProduct.destination = route.destination
+    returnProduct.routes = nil
+    return returnProduct
+end
+
+function ProductManager:getProductData(startLocation)
+    local filteredProducts = {}
+    if startLocation then
+        for index, product in ipairs(self.products) do
+            for _, route in ipairs(product.routes) do
+                if route.origin == startLocation then
+                    local returnProduct = self:getRouteCopy(product, route)
+                    table.insert(filteredProducts, returnProduct)
+                end
+            end
+        end
+    else
+        return self.products
+    end
+    return filteredProducts
+end
+
+function ProductManager:getShopProduct(origin, key)
+    local index = 0
+    for _, product in ipairs(self.products) do
+        for _, route in ipairs(product.routes) do
+            if route.origin == origin then
+                index = index + 1
+                if key == index then
+                    return self:getRouteCopy(product, route)
+                end
+            end
+        end
+    end
+    return nil
+end
+
+return ProductManager

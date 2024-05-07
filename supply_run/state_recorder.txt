@@ -1,0 +1,97 @@
+--@name state recorder
+--@author Lil'Tugboat
+--@shared
+
+-- Define the StateRecorder class
+local StateRecorder = class("StateRecorder")
+
+-- Initializes a new instance of the StateRecorder
+function StateRecorder:initialize()
+    self.state = {}
+    return self
+end
+
+-- Sets a record with the given type, index, and data
+function StateRecorder:setRecord(type, index, data)
+    if not type then
+        error("Invalid Type")
+    end 
+    if self.state[type] == nil then
+        self.state[type] = {}
+    end
+    
+    if index ~= nil then
+        self.state[type][index] = data
+    else
+        table.insert(self.state[type], data)
+    end
+end
+
+-- Sets an entire dataset for a given type
+function StateRecorder:setRecordSet(type, data)
+    if not type then
+        error("Invalid Type")
+    end
+    self.state[type] = data
+end
+
+-- Retrieves a record by type and index. If no index is provided, returns all records of that type
+function StateRecorder:getRecord(type, index)
+    if self.state[type] == nil then
+        return nil
+    end
+    if index ~= nil then
+        return self.state[type][index]
+    else
+        return self.state[type]
+    end
+end
+
+-- Retrieves a record by a function that tests each key-value pair
+function StateRecorder:getRecordByFunction(type, func)
+    if self.state[type] == nil then
+        return nil
+    end
+    for key, value in pairs(self.state[type]) do
+        if func(key, value) then
+            return value
+        end
+    end
+    return nil
+end
+
+-- Retrieves a set of records based on a function, or all records if no function is provided
+function StateRecorder:getRecordSet(type, func)
+    local result = {}
+    if self.state[type] == nil then
+        return nil
+    end
+    if not func then
+        return self.state[type]
+    end
+    
+    for key, value in pairs(self.state[type]) do
+        if func(key, value) then
+            table.insert(result, value)
+        end
+    end
+    return result
+end
+
+function StateRecorder:removeRecord(type, index, data)
+    if not type then
+        error("Invalid Type")
+    end 
+    if self.state[type] == nil then
+       error("Type does not exist")
+    end
+    
+    if index ~= nil then
+        table.remove(self.state[type], index)
+    elseif data then
+        table.removeByValue(self.state[type], data)
+    end
+end
+
+
+return StateRecorder

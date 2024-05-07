@@ -1,0 +1,36 @@
+--@name No shooting
+--@author Lil'Tugboat
+--@shared
+
+if SERVER then
+    local item
+    net.receive("thing", function(len, ply) 
+        if not item or not item:isValid() then
+            item = prop.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x025.mdl", true)
+            item:setColor(Color(0,0,0,0))
+            item:setNocollideAll(true)
+        else 
+            item:setPos(net.readVector())
+            item:setAngles(net.readAngle())
+        end
+    end)
+else
+    local player = player()
+    
+    function block()
+        pAng = player:getEyeAngles()
+        pSource = player:getEyePos()
+        targetPos = pSource + pAng:getForward() * 300
+        targetAng = pAng:rotateAroundAxis(pAng:getRight(), 90)
+        net.start("thing")
+            net.writeVector(targetPos)
+            net.writeAngle(targetAng)
+        net.send()
+    end
+    
+    hook.add("KeyPress", "things", function(ply, key) 
+        if key == (IN_KEY.ATTACK or IN_KEY.ATTACK2) and ply == player then 
+            block()
+        end
+    end)
+end

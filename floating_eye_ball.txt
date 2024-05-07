@@ -281,10 +281,11 @@ if SERVER then
             
             ball:setPos(newPos)
             ball:setAngles(driver:getEyeAngles())
+            centerProp:setAngles(driver:getEyeAngles())
             camLink.Activated = 1
             camLink.FilterEntities = body
             camLink.Position = ball:getPos() +    driver:getEyeAngles():getForward() * 20 * scale                                
-            camLink.Angles = ball:getAngles()                                 
+            camLink.Angles = driver:getEyeAngles()                               
         end
             
     

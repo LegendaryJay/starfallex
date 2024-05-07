@@ -2,58 +2,70 @@
 --@author Lil'Tugboat
 --@shared
 
-local Package = class("SpawnPlatform")
-function Package:initialize(entity, owner, product, controller)
-    self.owner = owner
+local Package = class("Package")
+
+function Package:initialize(entity, ownerId, product, controller)
+    self.type = "Package"
+    self.ownerId = ownerId
     self.product = product
     self.entity = entity
     self.controller = controller
-    controller:addPackage(self)
-
-    -- Determine the drop zone based on the product's location
-    local dropLocation = product.location
-    local dropPlatform = controller:getDropPlatform(dropLocation)
-    if dropPlatform then
-        dropPlatform:addPackage(self)
-    end
-
+    self.halfSize = self.entity:obbSize() * 0.5
+    self.destinationObject = self.controller:getRecordByFunction("DropPlatform", function(key, item)
+        return item.name == self.product.destination
+    end)
+    
+    self:initializeUpdateHook()
     return self
 end
 
-function Package.create(owner, pos, ang ,product, controller)   
-    item = prop.create(pos, ang, product.model)
-    item:setMass(product.weight)
-    item:setFrozen(true)
-    item:setMaterial(product.mat or "")
-    item:setSkin(product.skin or 0)
-    item:setColor(product.color or Color(255,255,255))
-    return Package:new(item, owner, product, controller)
+function Package.create(ownerId, pos, ang, model, controller, product)
+    local item = prop.create(pos, ang, model, true)
+    return Package:new(item, ownerId, product, controller)
 end
 
-function Package:closestPoint(entity, point)
-    returnVal = worldToLocal(point ,Angle(), entity:obbCenterW(), entity:getAngles())
-    halfSize = entity:obbSize() * 0.5
-    local closest_point = {}
-    for i = 1, 3 do
-        returnVal[i] = math.clamp(returnVal[i], -halfSize[i], halfSize[i])  
-    end
-    return localToWorld(returnVal, Angle(), entity:obbCenterW(), entity:getAngles())
+function Package:initializeUpdateHook()
+    hook.add("think", "update_package_" .. self.entity:entIndex(), function()
+        if not self.entity or not self.entity:isValid() then
+            hook.remove("think", "update_package_" .. self.entity:entIndex())
+            return
+        end
+        self:updateDistance()
+    end)
 end
 
-function Package:getDistance(pos)
-
-    if self.entity and self.entity:isValid() then
-        
-        return (self:closestPoint(self.entity, pos) - pos):getLength()
+function Package:updateDistance()
+    local distance = self:getDistToDest()
+    if distance <= 0 then
+        self:sell()
     else
-        self.controller.removePackage(self)
-        return 9999
+        local interval = math.max(0.1, math.log(distance + 1) * 0.5)  -- Calculate delay based on distance
+        self.nextUpdate = self.nextUpdate or timer.curtime()
+        if timer.curtime() >= self.nextUpdate then
+            self.nextUpdate = timer.curtime() + interval
+        end
     end
+end
+
+function Package:getDistToDest()
+    local closestPoint = self:closestPointToDest()
+    return (closestPoint - self.destinationObject.pos):getLength() - self.destinationObject.zoneRadius
+end
+
+function Package:closestPointToDest()
+    local localVector = worldToLocal(self.destinationObject.pos, Angle(), self.entity:obbCenterW(), self.entity:getAngles())
+    for i = 1, 3 do
+        localVector[i] = math.clamp(localVector[i], -self.halfSize[i], self.halfSize[i])
+    end
+    return localToWorld(localVector, Angle(), self.entity:obbCenterW(), self.entity:getAngles())
 end
 
 function Package:sell()
     if self.entity and self.entity:isValid() then
         self.entity:remove()
+        self.controller:addMoneyToUser(self.ownerId, self.product.pay)
+        self.controller:removeRecord("Package", nil, self)
+        hook.remove("think", "update_package_" .. self.entity:entIndex())
     end
 end
 

@@ -73,15 +73,14 @@ function Menu:initialize(products, spawnerName)
     self.groupedProducts = {}
     self.lookupProducts = {}
     for index, p in ipairs(products) do
-        if not self.groupedProducts[p.location] then
-            self.groupedProducts[p.location] = {}
+        if not self.groupedProducts[p.destination] then
+            self.groupedProducts[p.destination] = {}
         end
         p.index = index
-        table.insert(self.groupedProducts[p.location], p)
+        table.insert(self.groupedProducts[p.destination], p)
     end
     self.spawnerName = spawnerName
     self.pressed = false
-    self.name = spawnerName
     self.buttons = {}
 end
 
@@ -139,7 +138,7 @@ function Menu:draw()
             local labelFont = render.createFont(font, ph, nil, true)
             render.setFont(labelFont)
             render.setColor(Color(0,0,0))
-            render.drawSimpleText(px + margin, py + hh, "Cost: " .. product.price, TEXT_ALIGN.LEFT)
+            render.drawSimpleText(px + margin, py + hh, "Cost: " .. product.cost, TEXT_ALIGN.LEFT)
             render.drawSimpleText(px + pw * 0.5  + margin * 1.5, py + hh, "Pay: " .. product.pay, TEXT_ALIGN.LEFT)
             
             sizeY = ph + hh

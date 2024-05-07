@@ -10,12 +10,14 @@ function Economy:initialize(initialBalance)
     return self
 end
 
+
 function Economy:createUser(userId)
     print("created ".. userId)
     if not self.balances[userId] then
         self.balances[userId] = self.initialBalance
     end
 end
+
 
 function Economy:getBalance(userId)
     print("Balance: " .. self.balances[userId])
@@ -31,14 +33,15 @@ function Economy:addMoney(userId, amount)
 end
 
 function Economy:removeMoney(userId, amount)
-    print("Removed $" .. amount .. " from " .. userId)
     if not self.balances[userId] then
         self:createUser(userId)
     end
     if self.balances[userId] >= amount then
         self.balances[userId] = self.balances[userId] - amount
+        print("Removed $" .. amount .. " from " .. userId)
         return true
     else
+        print("Insufficient funds from " .. userId)
         return false  
     end
 end

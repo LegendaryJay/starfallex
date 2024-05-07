@@ -6,32 +6,32 @@
 
 local Package = require("supply_run/package.txt")
 local net = require("SafeNet")
+
 local SpawnPlatform = class("SpawnPlatform")
 
-function SpawnPlatform:initialize(name, pos, ang, entity, controller)
+function SpawnPlatform:initialize(name, pos, ang, entity, controller, settings)
+    self.type = "SpawnPlatform"
     self.name = name
     self.pos = pos
-    self.entity = (entity and entity:isValid()) and entity or nil
     self.ang = ang
-    self:updatePos()
+    self.entity = (entity and entity:isValid()) and entity or nil
     
-    
-    self.queue = {}
-    self.size = isValid(entity) and entity:obbSize() or Vector()
-    self.zoneSize = Vector(1,1,1) * math.max(self.size[1], self.size[2], self.size[3])
+    if entity and entity:isValid() then
+        self.halfSize = entity:obbSize() * 0.5
+    else 
+        self.halfSize = Vector()
+    end
     self:updatePos()
     self.controller = controller
-    self.products = controller:getProductData(self.name)
-    
     net.receive(name, function(_, ply)
         index = net.readFloat()
-        local product = self.products[index]
-        local cost = product.price
-        if controller.economy:removeMoney(ply:getSteamID(), cost) then
-            self:queueSpawn(ply:getSteamID(), index)
+        local product = self.controller:getShopProduct(self.name, index)
+        local cost = product.cost
+        if controller:removeMoneyFromUser(ply:getSteamID(), cost) then
+            self:queueSpawn(ply:getSteamID(), product)
         end
     end)
-    controller:addShop(self)
+    controller:addEntityInfo(self)
     return self
 end
 
@@ -42,87 +42,73 @@ function SpawnPlatform:updatePos()
         self.ang = self.entity:getAngles()
     else
         self.center = self.pos
-    end
-        
+    end  
+    self.top = self.center + self.ang:getUp() * self.halfSize[3]
 end
 
-function SpawnPlatform.create(name, pos, ang, mdl, controller)
+function SpawnPlatform.create(name, pos, ang, mdl, controller, settings)
     local entity = nil
     if mdl != "" and mdl != nil then
         entity = prop.create(pos, ang, mdl, true)
         entity:setUnbreakable(true)
     end
-    return SpawnPlatform:new(name, pos, ang, entity, controller)
+    return SpawnPlatform:new(name, pos, ang, entity, controller, settings)
     
 end
+
+function SpawnPlatform:queueSpawn(playerId, product)
+    pos, ang = self:getSpawnPos(product)
+    
+    data = table.copy(product)
+    data.pos = pos
+    data.ang = ang
+    data.type = "Package"
+    data.name = playerId
+    self.controller:queueComponent(data, function(product) return self:spawnCondition(product) end)
+end
+
 
 function SpawnPlatform:getSpawnPos(product)
-    return localToWorld(product.spawnInfo.spawnPos + self.ang:getUp() * self.size[3] * 0.5, Angle(), self.center, self.ang )
+    itemOffset = product.spawnInfo.spawnPos or Vector()
+    return localToWorld(itemOffset, Angle(), self.top, self.ang )
 end
 
-function SpawnPlatform:spawnPackage(owner, product) 
-    pos, ang = self:getSpawnPos(product)
-    return Package.create(owner, pos, ang, product, self.controller)
-end
-
-function SpawnPlatform:getTop()
-    return self.center + self.ang:getUp() * self.size[3] * 0.5
-end
-
-function SpawnPlatform:getObstructionPos(nextProduct)
-    pos, ang = self:getSpawnPos(product)
-    --local t = trace.intersectRayWithOBB(self:getTop(), self:getTop() , ang, product.spawnInfo.min:setZ(0), product.spawnInfo.max:setZ(0))
-    local t = trace.hull(self:getTop(), self:getTop() + self.ang:getUp() * product.spawnInfo.size[3], product.spawnInfo.min:setZ(0), product.spawnInfo.max:setZ(0), self.entity, nil, nil, true)
-    if t.Hit then
-        return t.HitPos 
-    end
-    return nil
-end
-
-function SpawnPlatform:spawnNext()
-    data = table.remove(self.queue, 1)
-    self:spawnPackage(data[1], self.products[data[2]])
-    
-end
-
-function SpawnPlatform:processQueue()
-    if #self.queue > 0 and prop.canSpawn() then
-        index = self.queue[1][2]
-        product = self.products[index]
-        local obsPos = self:getObstructionPos(product)
-        if not obsPos then
-            if self.problemHolo and self.problemHolo:isValid() then 
-                self.packageHolo:remove()
-                self.problemHolo:remove()
-            end
-            self:spawnNext()
-
-        else
-            pos, ang  = self:getSpawnPos(product)
-            if not self.problemHolo or not self.problemHolo:isValid() then
-                self.problemHolo = hologram.create(pos,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
-                local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 1)
-                self.problemHolo:setSize(size)
-                self.problemHolo:setMaterial("phoenix_storms/fender_white")
-                self.problemHolo:setColor(Color(255, 0, 0, 255))
-            
-                self.packageHolo = hologram.create(pos,ang, product.model) 
-                self.packageHolo:setColor(Color(255, 255, 255, 255))
-            end
-            
-            self.problemHolo:setPos(obsPos + Vector(math.random(),math.random(),math.random()))
-            self.packageHolo:setClip(1, true, obsPos, -self.ang:getUp())
-            
+function SpawnPlatform:spawnCondition(product)
+    local flatHalfSize =  Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0) * 0.5
+    local t = trace.hull(
+        product.pos - Vector(0,0, product.spawnInfo.size[3] * 0.5) , 
+        product.pos  + Vector(0,0, product.spawnInfo.size[3] * 0.5) , 
+        -flatHalfSize,
+        flatHalfSize,
+        self.entity,
+         nil,
+         nil, 
+        true
+    )
+    if not t.Hit then
+        if self.problemHolo and self.problemHolo:isValid() then 
+            self.packageHolo:remove()
+            self.problemHolo:remove()
         end
-            
-    end 
-end
+        return true
 
-function SpawnPlatform:queueSpawn(ply, index)
-    table.insert(self.queue, {ply, index})
-    if #self.queue == 1 then
-        hook.add("think", self.name .. "_queue", function() self:processQueue() end)
+    else
+        if not self.problemHolo or not self.problemHolo:isValid() then
+            self.problemHolo = hologram.create(pos,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
+            local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0)
+            self.problemHolo:setSize(size)
+            self.problemHolo:setMaterial("phoenix_storms/fender_white")
+            self.problemHolo:setColor(Color(255, 0, 0, 255))
+        
+            self.packageHolo = hologram.create(pos,ang, product.model) 
+            self.packageHolo:setColor(Color(255, 255, 255, 255))
+        end
+        
+        self.problemHolo:setPos(t.HitPos + Vector(math.random(),math.random(),math.random()))
+        self.packageHolo:setClip(1, true, t.HitPos, -self.ang:getUp())
+        
     end
+    return false
 end
 
 return SpawnPlatform

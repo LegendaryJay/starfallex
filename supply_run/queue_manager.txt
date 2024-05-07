@@ -1,0 +1,53 @@
+--@name Queue Manager
+--@author Lil'Tugboat
+--@shared
+
+local QueueManager = class("QueueManager")
+
+function QueueManager:initialize(controller)
+    self.controller = controller
+    self.queue = {}
+end
+
+function QueueManager:queueComponent(component, condition)
+    if not condition then 
+        condition = function() return true end  
+    end
+    table.insert(self.queue, {component, condition})
+    self:startProcessing()
+end
+
+function QueueManager:startProcessing()
+    if #self.queue == 1 then
+        hook.add("think", "queue_processing", function() self:processQueue() end)
+    end
+end
+
+function QueueManager:processQueue()
+    if #self.queue > 0 and prop.canSpawn() then
+        local item = self:getNextItem()
+        local condition = self:getNextCondition()
+        if condition(item) then  
+            self.controller:spawnNext()
+            table.remove(self.queue, 1)
+        end
+    end
+    if #self.queue == 0 then
+        hook.remove("think", "queue_processing")
+    end
+end
+
+function QueueManager:getNextItem()
+    if #self.queue > 0 then
+        return self.queue[1][1]
+    end
+    return nil
+end
+function QueueManager:getNextCondition()
+    if #self.queue > 0 then
+        return self.queue[1][2]
+    end
+    return nil
+end
+
+return QueueManager

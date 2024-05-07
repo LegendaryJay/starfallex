@@ -3,7 +3,8 @@
 --@shared
 
 local DropPlatform = class("DropPlatform")
-function DropPlatform:initialize(name, pos, ang, entity, controller)
+function DropPlatform:initialize(name, pos, ang, entity, controller, settings)
+    self.type = "DropPlatform"
     self.name = name
     self.entity = entity
     self.pos = pos
@@ -12,7 +13,7 @@ function DropPlatform:initialize(name, pos, ang, entity, controller)
     self.packages = {}
 
     self.holo = hologram.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x8.mdl", Vector())
-    self.zoneRadius = controller.settings.DropPlatform.radius or 20
+    self.zoneRadius = (settings and settings.radius) and settings.radius or 20
     self.zoneSize = Vector(1, 1, 1) * self.zoneRadius * 2
     self.holoScale = self.zoneSize / self.holo:obbSize()
 
@@ -21,10 +22,8 @@ function DropPlatform:initialize(name, pos, ang, entity, controller)
     self.holo:setColor(Color(255, 0, 0, 50))
 
     self:updatePos()
-
-    self:startMonitoringPackages()
     
-    controller:addDrop(self)
+    controller:addEntityInfo(self)
     return self
 end
 
@@ -43,37 +42,15 @@ function DropPlatform:updatePos()
     self.holo:setPos(pos)
 end
 
-function DropPlatform.create(name, pos, ang, mdl, controller)
+function DropPlatform.create(name, pos, ang, mdl, controller, settings)
     local entity = nil
     if mdl != "" and mdl != nil then
         entity = prop.create(pos, ang, mdl, true)
         entity:setUnbreakable(true)
     end
-    return DropPlatform:new(name, pos, ang, entity, controller)
+    return DropPlatform:new(name, pos, ang, entity, controller, settings)
 end
+    
 
-function DropPlatform:addPackage(package)
-    table.insert(self.packages, package)
-end
-
-function DropPlatform:startMonitoringPackages()
-    hook.add("think", self.name .. "_sellCheck", function()
-        self:checkAndSellPackages()
-    end)
-end
-
-function DropPlatform:checkAndSellPackages()
-    for _, package in ipairs(self.packages) do
-        if isValid(package.entity) then
-            if package:getDistance(self.zoneCenter) <= self.zoneRadius then
-                local owner = package.owner
-                self.controller.economy:addMoney(package.owner, package.product.pay)
-                package:sell()
-                
-                self.controller:removePackage(package)
-            end
-        end
-    end
-end
 
 return DropPlatform
