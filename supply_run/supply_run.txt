@@ -1,12 +1,11 @@
 --@name Supply Run
 --@author Lil'Tugboat
---@include supply_run/server/controller.txt
---@includedir supply_run/client
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
 --@shared
 local net = require("SafeNet")
 
 if SERVER then
+    --@include supply_run/server/controller.txt
     local Controller = require("supply_run/server/controller.txt")
     local products = {
         {
@@ -25,6 +24,18 @@ if SERVER then
                 },
                 {
                     origin = "Spawn Office", 
+                    destination = "Junk Shed", 
+                    cost = 20, 
+                    pay = 100,
+                },
+                {
+                    origin = "Tub Thrifters", 
+                    destination = "Police Station", 
+                    cost = 20, 
+                    pay = 100,
+                },
+                {
+                    origin = "Tub Thrifters", 
                     destination = "Junk Shed", 
                     cost = 20, 
                     pay = 100,
@@ -70,7 +81,7 @@ if SERVER then
     local defaultSettings = {
         DropPlatform = {
             mat = "phoenix_storms/stripes",
-            radius = 100
+            radius = 50
         },
         ShopScreen = {
             model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
@@ -98,7 +109,19 @@ if SERVER then
                 type = "ShopScreen",
                 name = "Spawn Office",
                 ang = Angle(0, 0, 90),  -- Adjust angle as needed
-                pos = chip():getPos() + Vector(0, 30, 70)
+                pos = chip():getPos() + Vector(0, 100, 70)
+            },
+            {
+                type = "SpawnPlatform",
+                name = "Tub Thrifters",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = chip():getPos() + Vector(0, -300, 0)
+            },
+            {
+                type = "ShopScreen",
+                name = "Tub Thrifters",
+                ang = Angle(0, 180, 90),  -- Adjust angle as needed
+                pos = chip():getPos() + Vector(0, -100, 70)
             },
             {
                 type = "DropPlatform",
@@ -108,7 +131,6 @@ if SERVER then
                 model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
                 color = Color(255, 0, 255),
                 skin = 0 ,
-                radius = 20,
                 solid = false,
             },
             {
@@ -119,6 +141,12 @@ if SERVER then
             }
         }
     }
+    
+    local config = {
+        products = products,
+        defaults = defaultSettings,
+        snapshot = snapshot
+    }
         
     
     -- buttons/button14.wav -- happy beep 
@@ -128,10 +156,16 @@ if SERVER then
     -- hl1/ambience/labdrone2.wav trouble spawning?
     -- NPC_Alyx.Vend_Coin sale?
 
-    local controller = Controller:new(products, defaultSettings, snapshot)
+    local controller = Controller:new(config)
 
     
 else
+    --@include supply_run/client/client_controller.txt
+    --@include supply_run/client/shop_display.txt
+
+    local ClientControler = require("supply_run/client/client_controller.txt")
+    local client = ClientControler:new()
+    
     local ShopDisplay = require("supply_run/client/shop_display.txt")
     local shopDisplay = ShopDisplay:new()
     
@@ -147,5 +181,5 @@ else
         shopDisplay:handleNetReceive()
     end)
     
-    local Economy = require("supply_run/economy.txt")
+    
 end

@@ -11,6 +11,7 @@ function Package:initialize(entity, ownerId, product, controller)
     self.entity = entity
     self.controller = controller
     self.halfSize = self.entity:obbSize() * 0.5
+    self.nextUpdate =timer.curtime()
     self.destinationObject = self.controller:getRecordByFunction("DropPlatform", function(key, item)
         return item.name == self.product.destination
     end)
@@ -36,15 +37,14 @@ function Package:updateDistance()
         return
     end
     
-    local distance = self:getDistToDest()
-    if distance <= 0 then
-        self:sell()
-    else
+    if self.entity:isPlayerHolding() or timer.curtime() >= self.nextUpdate then
+        local distance = self:getDistToDest()
+        if distance <= 0 then
+            self:sell()
+            return
+        end 
         local interval = math.max(0.1, math.log(distance + 1) * 0.5)  -- Calculate delay based on distance
-        self.nextUpdate = self.nextUpdate or timer.curtime()
-        if timer.curtime() >= self.nextUpdate then
-            self.nextUpdate = timer.curtime() + interval
-        end
+        self.nextUpdate = timer.curtime() + interval
     end
 end
 

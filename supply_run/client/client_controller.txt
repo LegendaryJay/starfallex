@@ -1,0 +1,24 @@
+--@name client controller
+--@author Lil'Tugboat
+--@include supply_run/economy.txt
+--@client
+
+local Economy = require("supply_run/economy.txt")
+
+local ClientController = class("ClientController")
+function ClientController:initialize()
+    self.screens = {}
+    self.economy = Economy:new()
+end
+
+function ClientController:buy(amount)
+
+end
+function ClientController:sell(amount) end
+
+return ClientController
+
+
+
+    
+    

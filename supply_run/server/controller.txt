@@ -22,30 +22,29 @@ local QueueManager = require("supply_run/server/queue_manager.txt")
 local Economy = require("supply_run/economy.txt")
 
 local Controller = class("Controller")
-function Controller:initialize(products, settings, snapshot)
-    self.queue = {}
-
-    self.productManager = ProductManager:new(products)
+function Controller:initialize(configs)
+    self.productManager = ProductManager:new(configs.products)
     self.entityManager = EntityManager:new() 
-    self.queueManager = QueueManager:new(self)
+    self.queueManager = QueueManager:new("controller", function(item) self:spawnNext(item) end)
+    self.economy = Economy:new(configs.defaults.Economy.startingCash or 0)
     
     self.stateRecorder = StateRecorder:new()
     
-    self:setRecordSet("products", products)
-    self:setRecordSet("settings", settings)
-    self:setRecordSet("locationData", placements)
-    
-    self.economy = Economy:new(settings.Economy.startingCash or 0)
-    
-    if snapshot then
-        for _, data in pairs(snapshot.state) do
-            self:queueComponent(data)
-        end
+    for key, value in pairs(configs) do
+        self:setRecordSet(key, value)
     end
     
+    self:loadSnapshot(self.stateRecorder:getRecord("snapshot", "state"))
     return self
 end
 
+function Controller:loadSnapshot(state)
+    if state then
+        for _, data in pairs(state) do
+            self:queueComponent(data)
+        end
+    end
+end
 
 -- product stuff
 function Controller:addProductInfo(object)
@@ -131,8 +130,7 @@ end
 function Controller:queueComponent(data, condition)
     self.queueManager:queueComponent(data, condition)
 end
-function Controller:spawnNext()
-    local nextItem = self.queueManager:getNextItem()
+function Controller:spawnNext(nextItem)
     if nextItem then
         local componentCreators = {
             DropPlatform = DropPlatform.create,
@@ -142,7 +140,7 @@ function Controller:spawnNext()
         }
         local creator = componentCreators[nextItem.type]
         if creator then
-            local settings = self:getRecord("settings")
+            local settings = self:getRecord("defaults")
             local mergedSettings = table.inherit(nextItem, settings[nextItem.type] or {})
             local item = creator(nextItem.name, nextItem.pos, nextItem.ang, nextItem.model or "", self, mergedSettings)
             if item and item.entity then

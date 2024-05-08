@@ -1,6 +1,7 @@
 --@name Shop Display
 --@author Lil'Tugboat
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@include supply_run/client/shop_menu.txt
 --@client
 
 local net = require("SafeNet")
@@ -9,7 +10,8 @@ local Menu = require("supply_run/client/shop_menu.txt")
 -- Client class definition
 local ShopDisplay = class("ShopDisplay")
 
-function ShopDisplay:initialize()
+function ShopDisplay:initialize(client)
+    self.client = client
     self.isNearScreen = false
     self.products = {}
     self.shopName = ""

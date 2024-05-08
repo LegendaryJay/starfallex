@@ -1,11 +1,11 @@
 --@name Spawn Platform Class
 --@author Lil'Tugboat
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
---@includedir supply_run
+--@include supply_run/server/queue_manager.txt
 --@server
 
 local net = require("SafeNet")
-
+local QueueManager = require("supply_run/server/queue_manager.txt")
 local SpawnPlatform = class("SpawnPlatform")
 
 function SpawnPlatform:initialize(name, pos, ang, entity, controller, settings)
@@ -14,6 +14,8 @@ function SpawnPlatform:initialize(name, pos, ang, entity, controller, settings)
     self.pos = pos
     self.ang = ang
     self.entity = (entity and entity:isValid()) and entity or nil
+    
+    self.queue = QueueManager:new(name, function(item) return self.controller:spawnNext(item) end, function(product) return self:spawnCondition(product)end)
     
     if entity and entity:isValid() then
         self.halfSize = entity:obbSize() * 0.5
@@ -57,13 +59,12 @@ end
 
 function SpawnPlatform:queueSpawn(playerId, product)
     pos, ang = self:getSpawnPos(product)
-    
     data = table.copy(product)
     data.pos = pos
     data.ang = ang
     data.type = "Package"
     data.name = playerId
-    self.controller:queueComponent(data, function(product) return self:spawnCondition(product) end)
+    self.queue:queueComponent(data, function(product) return self:spawnCondition(product) end)
 end
 
 
@@ -75,7 +76,7 @@ end
 function SpawnPlatform:spawnCondition(product)
     local flatHalfSize =  Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0) * 0.5
     local t = trace.hull(
-        product.pos - Vector(0,0, product.spawnInfo.size[3] * 0.5) , 
+        product.pos - Vector(0,0, product.spawnInfo.size[3] * 0.5), 
         product.pos  + Vector(0,0, product.spawnInfo.size[3] * 0.5) , 
         -flatHalfSize,
         flatHalfSize,
@@ -85,7 +86,8 @@ function SpawnPlatform:spawnCondition(product)
         true
     )
     if not t.Hit then
-        if self.problemHolo and self.problemHolo:isValid() then 
+        
+        if self.problemHolo and self.problemHolo:isValid() and #self.queue.queue < 2 then 
             self.packageHolo:remove()
             self.problemHolo:remove()
         end
@@ -93,18 +95,22 @@ function SpawnPlatform:spawnCondition(product)
 
     else
         if not self.problemHolo or not self.problemHolo:isValid() then
-            self.problemHolo = hologram.create(pos,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
+        
+            posOffset = product.spawnInfo.center
+            posOffset = posOffset:setZ(0)
+            self.problemHolo = hologram.create(pos - posOffset,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
             local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0)
             self.problemHolo:setSize(size)
             self.problemHolo:setMaterial("phoenix_storms/fender_white")
             self.problemHolo:setColor(Color(255, 0, 0, 255))
         
-            self.packageHolo = hologram.create(pos,ang, product.model) 
-            self.packageHolo:setColor(Color(255, 255, 255, 255))
+            self.packageHolo = hologram.create(pos,ang, product.model, Vector())
+            self.controller:modifyEntity(self.holoEntity, product)
         end
         
         self.problemHolo:setPos(t.HitPos + Vector(math.random(),math.random(),math.random()))
         self.packageHolo:setClip(1, true, t.HitPos, -self.ang:getUp())
+        self.packageHolo:setScale(Vector(1,1,1))
         
     end
     return false

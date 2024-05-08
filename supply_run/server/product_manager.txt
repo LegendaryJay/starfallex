@@ -4,7 +4,7 @@
 local ProductManager = class("ProductManager")
 
 function ProductManager:initialize(products)
-    self.products = products
+    self.products = products or {}
     self:generateProductData()
 end
 

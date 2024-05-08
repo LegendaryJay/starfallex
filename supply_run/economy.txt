@@ -60,8 +60,10 @@ if CLIENT then
     local Economy = class("Economy")
 
     function Economy:initialize()
-        self.balance = 0  -- Only tracks this client's balance
-        --net.receive("balance", function(_, ))
+        self.balance = 0 
+        net.receive("balance", function() 
+            self:updateBalance(net.readFloat())
+        end)
         return self
     end
 
@@ -85,6 +87,11 @@ if CLIENT then
     function Economy:updateBalance(newBalance)
         self.balance = newBalance
     end
+    
+    function Economy:requestBalanceUpdate()
+        
+    end
+
 
     return Economy
 end
