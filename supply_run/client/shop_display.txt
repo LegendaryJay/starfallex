@@ -4,7 +4,7 @@
 --@client
 
 local net = require("SafeNet")
-local Menu = require("supply_run/shop_menu.txt")
+local Menu = require("supply_run/client/shop_menu.txt")
 
 -- Client class definition
 local ShopDisplay = class("ShopDisplay")

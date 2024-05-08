@@ -2,57 +2,89 @@
 --@author Lil'Tugboat
 --@shared
 
-local Economy = class("Economy")
+if SERVER then 
+    local Economy = class("Economy")
 
-function Economy:initialize(initialBalance)
-    self.initialBalance = initialBalance or 0
-    self.balances = {}  -- To hold each user's balance
-    return self
-end
-
-
-function Economy:createUser(userId)
-    print("created ".. userId)
-    if not self.balances[userId] then
-        self.balances[userId] = self.initialBalance
+    function Economy:initialize(initialBalance)
+        self.initialBalance = initialBalance or 0
+        self.balances = {}  -- To hold each user's balance
+        return self
     end
-end
-
-
-function Economy:getBalance(userId)
-    print("Balance: " .. self.balances[userId])
-    return self.balances[userId] or self.initialBalance
-end
-
-function Economy:addMoney(userId, amount)
-    print("Add $" .. amount .. " to " .. userId)
-    if not self.balances[userId] then
-        self:createUser(userId)  
+    function Economy:createUser(userId)
+        print("created ".. userId)
+        if not self.balances[userId] then
+            self.balances[userId] = self.initialBalance
+        end
     end
-    self.balances[userId] = self.balances[userId] + amount
+    
+    
+    function Economy:getBalance(userId)
+        print("Balance: " .. self.balances[userId])
+        return self.balances[userId] or self.initialBalance
+    end
+    
+    function Economy:addMoney(userId, amount)
+        print("Add $" .. amount .. " to " .. userId)
+        if not self.balances[userId] then
+            self:createUser(userId)  
+        end
+        self.balances[userId] = self.balances[userId] + amount
+    end
+    
+    function Economy:removeMoney(userId, amount)
+        if not self.balances[userId] then
+            self:createUser(userId)
+        end
+        if self.balances[userId] >= amount then
+            self.balances[userId] = self.balances[userId] - amount
+            print("Removed $" .. amount .. " from " .. userId)
+            return true
+        else
+            print("Insufficient funds from " .. userId)
+            return false  
+        end
+    end
+    
+    function Economy:transferMoney(fromUserId, toUserId, amount)
+        if self:removeMoney(fromUserId, amount) then
+            self:addMoney(toUserId, amount)
+            return true
+        else
+            return false 
+        end
+    end
+    return Economy
 end
 
-function Economy:removeMoney(userId, amount)
-    if not self.balances[userId] then
-        self:createUser(userId)
+if CLIENT then
+    local Economy = class("Economy")
+
+    function Economy:initialize()
+        self.balance = 0  -- Only tracks this client's balance
+        --net.receive("balance", function(_, ))
+        return self
     end
-    if self.balances[userId] >= amount then
-        self.balances[userId] = self.balances[userId] - amount
-        print("Removed $" .. amount .. " from " .. userId)
+
+    function Economy:canBuy(amount)
+        return amount < self.balance
+    end
+
+    function Economy:buy(amount)
+        if self.canBuy(amount) then
+            self.myBalance = self.myBalance - amount
+            return true
+        end
+        return false
+    end
+    function Economy:sell(amount)
+        self.myBalance = self.myBalance - amount
         return true
-    else
-        print("Insufficient funds from " .. userId)
-        return false  
-    end
-end
 
-function Economy:transferMoney(fromUserId, toUserId, amount)
-    if self:removeMoney(fromUserId, amount) then
-        self:addMoney(toUserId, amount)
-        return true
-    else
-        return false 
     end
-end
 
-return Economy
+    function Economy:updateBalance(newBalance)
+        self.balance = newBalance
+    end
+
+    return Economy
+end

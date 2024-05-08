@@ -1,6 +1,6 @@
 --@name state recorder
 --@author Lil'Tugboat
---@shared
+--@server
 
 -- Define the StateRecorder class
 local StateRecorder = class("StateRecorder")

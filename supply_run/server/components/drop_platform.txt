@@ -1,6 +1,6 @@
 --@name Drop Platform
 --@author Lil'Tugboat
---@shared
+--@server
 
 local DropPlatform = class("DropPlatform")
 function DropPlatform:initialize(name, pos, ang, entity, controller, settings)
@@ -10,7 +10,6 @@ function DropPlatform:initialize(name, pos, ang, entity, controller, settings)
     self.pos = pos
     self.ang = ang
     self.controller = controller
-    self.packages = {}
 
     self.holo = hologram.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x8.mdl", Vector())
     self.zoneRadius = (settings and settings.radius) and settings.radius or 20

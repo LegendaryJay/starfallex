@@ -1,36 +1,59 @@
---@name No shooting
+--@name No Shooting
 --@author Lil'Tugboat
---@shared
+--@server
 
-if SERVER then
-    local item
-    net.receive("thing", function(len, ply) 
-        if not item or not item:isValid() then
-            item = prop.create(Vector(), Angle(), "models/hunter/blocks/cube8x8x025.mdl", true)
-            item:setColor(Color(0,0,0,0))
-            item:setNocollideAll(true)
-        else 
-            item:setPos(net.readVector())
-            item:setAngles(net.readAngle())
-        end
-    end)
-else
-    local player = player()
+local playerProps = {} -- Stores props and last active time for each player
+
+-- Function to block a player's line of sight
+function updateBlock(ply)
+    local pAng = ply:getEyeAngles()
+    local pSource = ply:getEyePos()
+    local pTrace = ply:getEyeTrace()
+    local hitPos = ply.HitPos
     
-    function block()
-        pAng = player:getEyeAngles()
-        pSource = player:getEyePos()
-        targetPos = pSource + pAng:getForward() * 300
-        targetAng = pAng:rotateAroundAxis(pAng:getRight(), 90)
-        net.start("thing")
-            net.writeVector(targetPos)
-            net.writeAngle(targetAng)
-        net.send()
+    
+    local targetPos = pSource + pAng:getForward() * 300
+    local targetAng = pAng:rotateAroundAxis(pAng:getUp(), 90)
+
+    if not playerProps[ply] or not playerProps[ply].p or not playerProps[ply].p:isValid() then
+        -- Create a new prop if one doesn't exist or isn't valid
+        local p = prop.create(targetPos, targetAng, "models/hunter/blocks/cube1x8x1.mdl", true)
+        p:setNocollideAll(true)
+        --p:setColor(Color(0,0,0,0))
+        playerProps[ply] = { p = p, lastActive = timer.curtime() }
+    else
+        -- Update position and angles if the prop already exists
+        playerProps[ply].p:setPos(targetPos)
+        playerProps[ply].p:setAngles(targetAng)
     end
-    
-    hook.add("KeyPress", "things", function(ply, key) 
-        if key == (IN_KEY.ATTACK or IN_KEY.ATTACK2) and ply == player then 
-            block()
-        end
-    end)
 end
+
+-- Function to check and remove props
+function manageProps()
+    local currentTime = timer.curtime()
+    for ply, data in pairs(playerProps) do
+        if currentTime > data.lastActive + 0.1 or not ply or not ply:isValid() then 
+            if data.p and data.p:isValid() then
+                data.p:remove() 
+            end
+            playerProps[ply] = nil 
+        elseif ply:keyDown(IN_KEY.ATTACK) or ply:keyDown(IN_KEY.ATTACK2) then
+            data.lastActive = currentTime
+        end
+    end
+end
+
+-- Hook to handle key presses
+hook.add("KeyPress", "BlockPressHandler", function(ply, key)
+    if key == IN_KEY.ATTACK or key == IN_KEY.ATTACK2 then
+        updateBlock(ply) 
+    end
+end)
+
+
+hook.add("Think", "PropManagement", function()
+    manageProps() -- Check for props to remove and update
+    for ply, _ in pairs(playerProps) do
+        updateBlock(ply) -- Update positions and angles
+    end
+end)

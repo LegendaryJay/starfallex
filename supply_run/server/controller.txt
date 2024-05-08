@@ -1,17 +1,25 @@
 --@name Controller Class
 --@author Lil'Tugboat
 --@includedir supply_run
---@shared
+--@includedir supply_run/server
+--@includedir supply_run/server/components/
 
-local Package = require("supply_run/package.txt")
-local SpawnPlatform = require("supply_run/spawn_platform.txt")
-local ShopScreen = require("supply_run/shop_screen.txt")
-local DropPlatform = require("supply_run/drop_platform.txt")
+--@server
+
+-- components
+local Package = require("supply_run/server/components/package.txt")
+local SpawnPlatform = require("supply_run/server/components/spawn_platform.txt")
+local ShopScreen = require("supply_run/server/components/shop_screen.txt")
+local DropPlatform = require("supply_run/server/components/drop_platform.txt")
+
+//managers
+local StateRecorder = require("supply_run/server/state_recorder.txt")
+local EntityManager = require("supply_run/server/entity_manager.txt")
+local ProductManager = require("supply_run/server/product_manager.txt")
+local QueueManager = require("supply_run/server/queue_manager.txt")
+
+// shared
 local Economy = require("supply_run/economy.txt")
-local StateRecorder = require("supply_run/state_recorder.txt")
-local EntityManager = require("supply_run/entity_manager.txt")
-local ProductManager = require("supply_run/product_manager.txt")
-local QueueManager = require("supply_run/queue_manager.txt")
 
 local Controller = class("Controller")
 function Controller:initialize(products, settings, snapshot)

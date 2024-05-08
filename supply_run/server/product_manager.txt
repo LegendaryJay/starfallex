@@ -1,6 +1,6 @@
 --@name Product Management
 --@author Lil'Tugboat
---@shared
+--@server
 local ProductManager = class("ProductManager")
 
 function ProductManager:initialize(products)

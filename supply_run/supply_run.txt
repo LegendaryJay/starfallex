@@ -1,16 +1,13 @@
 --@name Supply Run
 --@author Lil'Tugboat
---@includedir supply_run
+--@include supply_run/server/controller.txt
+--@includedir supply_run/client
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
 --@shared
 local net = require("SafeNet")
 
-local Controller = require("supply_run/controller.txt")
-
-
-
 if SERVER then
-    
+    local Controller = require("supply_run/server/controller.txt")
     local products = {
         {
             model = "models/props_junk/garbage_newspaper001a.mdl",
@@ -133,10 +130,9 @@ if SERVER then
 
     local controller = Controller:new(products, defaultSettings, snapshot)
 
-
     
 else
-    local ShopDisplay = require("supply_run/shop_display.txt")
+    local ShopDisplay = require("supply_run/client/shop_display.txt")
     local shopDisplay = ShopDisplay:new()
     
     hook.add("render", "screenRender", function()
@@ -150,4 +146,6 @@ else
     net.receive("screenInfo", function()
         shopDisplay:handleNetReceive()
     end)
+    
+    local Economy = require("supply_run/economy.txt")
 end

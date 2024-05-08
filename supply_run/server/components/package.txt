@@ -1,6 +1,6 @@
 --@name Package Class
 --@author Lil'Tugboat
---@shared
+--@server
 
 local Package = class("Package")
 
@@ -26,15 +26,16 @@ end
 
 function Package:initializeUpdateHook()
     hook.add("think", "update_package_" .. self.entity:entIndex(), function()
-        if not self.entity or not self.entity:isValid() then
-            hook.remove("think", "update_package_" .. self.entity:entIndex())
-            return
-        end
         self:updateDistance()
     end)
 end
 
 function Package:updateDistance()
+    if not self.entity or not self.entity:isValid() then
+        self:remove()
+        return
+    end
+    
     local distance = self:getDistToDest()
     if distance <= 0 then
         self:sell()
@@ -49,11 +50,11 @@ end
 
 function Package:getDistToDest()
     local closestPoint = self:closestPointToDest()
-    return (closestPoint - self.destinationObject.pos):getLength() - self.destinationObject.zoneRadius
+    return (closestPoint - self.destinationObject.zoneCenter):getLength() - self.destinationObject.zoneRadius
 end
 
 function Package:closestPointToDest()
-    local localVector = worldToLocal(self.destinationObject.pos, Angle(), self.entity:obbCenterW(), self.entity:getAngles())
+    local localVector = worldToLocal(self.destinationObject.zoneCenter, Angle(), self.entity:obbCenterW(), self.entity:getAngles())
     for i = 1, 3 do
         localVector[i] = math.clamp(localVector[i], -self.halfSize[i], self.halfSize[i])
     end
@@ -62,11 +63,17 @@ end
 
 function Package:sell()
     if self.entity and self.entity:isValid() then
-        self.entity:remove()
         self.controller:addMoneyToUser(self.ownerId, self.product.pay)
-        self.controller:removeRecord("Package", nil, self)
-        hook.remove("think", "update_package_" .. self.entity:entIndex())
     end
+    self:remove()
+end
+
+function Package:remove()
+    if self.entity and self.entity:isValid() then 
+        self.entity:remove()
+    end
+    self.controller:removeRecord("Package", nil, self)
+    hook.remove("think", "update_package_" .. self.entity:entIndex())
 end
 
 return Package

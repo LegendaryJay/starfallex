@@ -1,6 +1,6 @@
 --@name Queue Manager
 --@author Lil'Tugboat
---@shared
+--@server
 
 local QueueManager = class("QueueManager")
 

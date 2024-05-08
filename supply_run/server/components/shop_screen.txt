@@ -1,6 +1,6 @@
 --@name Spawn Shop Screen Class
 --@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
---@shared
+--@server
 local net = require("SafeNet")
 local ShopScreen = class("ShopScreen")
 function ShopScreen:initialize(name, entity, controller)

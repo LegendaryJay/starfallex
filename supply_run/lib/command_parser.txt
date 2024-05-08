@@ -1,0 +1,62 @@
+-- @name Command Parser
+-- @server
+
+function parseCommand(input)
+    if string.sub(input, 1, 1) ~= "!" then return nil end  -- Check if starts with '!'
+    
+    local args = {}
+    local command = nil
+    local notInsideQuote = true
+    local currentArg = ""
+    
+    -- Start from second character to skip '!'
+    for i = 2, #input do
+        local char = string.sub(input, i, i)
+        
+        if char == '"' and notInsideQuote then
+            notInsideQuote = false
+        elseif char == '"' and not notInsideQuote then
+            notInsideQuote = true
+            if #currentArg > 0 then
+                table.insert(args, currentArg)
+                currentArg = ""
+            end
+        elseif char == ' ' and notInsideQuote then
+            if #currentArg > 0 then
+                if command == nil then
+                    command = currentArg
+                else
+                    table.insert(args, currentArg)
+                end
+                currentArg = ""
+            end
+        else
+            currentArg = currentArg .. char
+        end
+    end
+    
+    if #currentArg > 0 then
+        if command == nil then
+            command = currentArg
+        else
+            table.insert(args, currentArg)
+        end
+    end
+    
+    return command, args
+end
+
+-- Example usage
+--[[
+local input = '!say "Hello world" "This is a test"'
+local command, args = parseCommand(input)
+
+if command then
+    print("Command:", command)
+    for idx, arg in pairs(args) do
+        print("Arg " .. idx .. ":", arg)
+    end
+else
+    print("No command prefix found.")
+end
+]]

@@ -1,6 +1,6 @@
 --@name EntityManager Class
 --@author Lil'Tugboat
---@shared
+--@server
 
 local EntityManager = class("EntityManager")
 
