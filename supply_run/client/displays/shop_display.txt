@@ -30,7 +30,20 @@ function ShopDisplay:initialize(origin, client)
     
 end
 
+function ShopDisplay:desaturate(color)
+    hsv = color:rgbToHSV()
+    hsv[2] = hsv[2] * 0.5
+    return hsv:hsvToRGB()
+end
+
 function ShopDisplay:draw()
+    function desaturate(color)
+        local hsv = color:rgbToHSV()
+        hsv[2] = 0
+        return hsv:hsvToRGB()
+    end
+    
+    local balance = self.client:getBalance()
     local screenWidth, screenHeight = render.getResolution()
     
     -- Define colors and fonts
@@ -50,7 +63,7 @@ function ShopDisplay:draw()
     
     local balanceFont = render.createFont(font, 17, nil, true)
     render.setFont(balanceFont)
-    render.drawSimpleText(screenWidth - margin, margin, "Balance: $" .. self.client:getBalance(), TEXT_ALIGN.RIGHT, TEXT_ALIGN.TOP)
+    render.drawSimpleText(screenWidth - margin, margin, "Balance: $" .. balance, TEXT_ALIGN.RIGHT, TEXT_ALIGN.TOP)
     
     local yVal = th + margin
     
@@ -64,6 +77,7 @@ function ShopDisplay:draw()
         yVal = yVal + ch + margin * 2
         
         for key, job in pairs(jobs) do
+            local canNotAfford = job.cost > balance
             -- info panel
             px = 90
             hh = 18
@@ -72,7 +86,11 @@ function ShopDisplay:draw()
             ph = 16
             -- Draw header
             local headerFont = render.createFont(font, hh, nil, true)
-            render.setColor(headerColor)
+            local color = headerColor
+            if job.cost > balance then
+                color = desaturate(color)
+            end
+            render.setColor(color)
             render.drawRect(px, py, pw, hh)
             render.setFont(headerFont)
             render.setColor(textColor)
@@ -80,7 +98,11 @@ function ShopDisplay:draw()
             render.drawSimpleText(pw + px - margin, py, self.products[job.item].entitySetup.weight .. "wt", TEXT_ALIGN.RIGHT)
       
             -- Draw label area
-            render.setColor(backgroundColor)
+            local color = backgroundColor
+            if job.cost > balance then
+                color = desaturate(color)
+            end
+            render.setColor(color)
             render.drawRect(px + (pw - margin) * 0.5 + margin, py + hh, (pw - margin) * 0.5, ph)
             render.drawRect(px, py + hh, (pw - margin) * 0.5, ph)
             
@@ -102,6 +124,8 @@ function ShopDisplay:draw()
                 self.buttons[buttonId] = Button:new("Haul",  function() self:buy(job) end) 
                 self.buttons[buttonId]:setButton(bx, by, bw, bh)
             end
+             self.buttons[buttonId]:setDisabled(job.cost > balance)
+               
             self.buttons[buttonId]:update()
             self.buttons[buttonId]:draw()
             

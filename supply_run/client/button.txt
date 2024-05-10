@@ -19,7 +19,6 @@ function Button:initialize(text, callback)
     self.baseColor = Color(0, 60, 60)
     self.hoverColor = Color(0, 120, 120) 
     self.pressColor = Color(0, 180, 180)
-    self.disabledColor = Color(100, 100, 100)
     self.buttonShadowColor = Color(0, 40, 40)
     
     self.callback = callback or function() end
@@ -66,6 +65,19 @@ function Button:isHovered(cx, cy)
     return cx and cy and cx >= self.x and cx <= self.x + self.w and cy >= self.y and cy <= self.y + self.h
 end
 
+function Button.desaturate(color)
+    local hsv = color:rgbToHSV()
+    hsv[2] = 0
+    return hsv:hsvToRGB()
+end
+function Button:ifDisabledDesaturate(color)
+    if self.disabled == true then 
+        return self.desaturate(color)
+    else
+        return color
+    end
+end
+
 function Button:draw()
     local bgColor = self.disabled and self.disabledColor or self.baseColor
     if not self.disabled then
@@ -79,15 +91,16 @@ function Button:draw()
     local pressedOffset = self.pressed and 0 or 1
     
     -- Draw button shadow
-    render.setColor(self.buttonShadowColor)
+    
+    render.setColor(self:ifDisabledDesaturate(self.buttonShadowColor))
     render.drawRect(self.x, self.y, self.w, self.h)
     
     -- Draw button
-    render.setColor(bgColor)
+    render.setColor(self:ifDisabledDesaturate(bgColor))
     render.drawRect(self.x - pressedOffset, self.y - pressedOffset, self.w, self.h)
     
     -- Draw Button Label
-    render.setColor(self.textColor)
+    render.setColor(self:ifDisabledDesaturate(self.textColor))
     render.drawSimpleText(self.x + self.w / 2 - pressedOffset, self.y + self.h / 2 - pressedOffset, self.text, TEXT_ALIGN.CENTER, TEXT_ALIGN.CENTER)
 end
 

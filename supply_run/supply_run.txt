@@ -102,7 +102,7 @@ if SERVER then
             }
         },
         Economy = {
-            startingCash = 99200
+            startingCash = 50
         
         }
     }
