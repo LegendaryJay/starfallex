@@ -5,6 +5,16 @@
 local DropPlatform = class("DropPlatform")
 function DropPlatform:initialize(name, pos, ang, entity, controller, settings)
     self.type = "DropPlatform"
+    self.edit = false
+    
+    if entity and entity:isValid() then
+        self.entity = entity
+        self.noEntity = false
+    else
+        self.entity = nil
+        self.noEntity = true
+    end
+    
     self.name = name
     self.entity = entity
     self.pos = pos
@@ -21,8 +31,8 @@ function DropPlatform:initialize(name, pos, ang, entity, controller, settings)
     self.holo:setColor(Color(255, 0, 0, 50))
 
     self:updatePos()
-    
-    controller:addEntityInfo(self)
+    self:setEdit(true)    
+    --controller:addEntityInfo(self)
     return self
 end
 
@@ -49,7 +59,33 @@ function DropPlatform.create(name, pos, ang, mdl, controller, settings)
     end
     return DropPlatform:new(name, pos, ang, entity, controller, settings)
 end
+
+function DropPlatform:setEdit(editMode)
+    if editMode == nil then
+        self.edit = not self.edit
+    else
+        self.edit = editMode
+    end
     
+    if self.edit then
+        hook.add("think", "drop editMode " .. self.name, function() 
+            self:editRun()
+        end)
+    else
+        hook.remove("think", "drop editMode ")
+        if self.entity and self.noEntity then
+            self.entity:remove()
+        end
+    end
+end
+    
+function DropPlatform:editRun()
+    if not self.entity and prop.canSpawn() then
+        self.entity = prop.create(self.pos, self.ang, "models/sprops/misc/axis_plane.mdl", true)
+    end        
+    self:updatePos()
+end
+     
 
 
 return DropPlatform

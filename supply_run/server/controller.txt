@@ -171,27 +171,20 @@ function Controller:spawnNext(nextItem)
         }
         local creator = componentCreators[nextItem.type]
         if creator then
+            local function attachDefaults(specific, default)
+                for key, defaults in pairs(default) do
+                    if type(defaults != table) then
+                        specific[key] = specific[key] or defaults
+                    else
+                        attachDefaults(nextItem[key], defaults)
+                    end
+                end 
+            end
             local settings = self:getRecord("defaults")
-            
-            local itemSetup = {}
-            if settings[nextItem.type] and settings[nextItem.type].entitySetup then
-                itemSetup = table.merge(itemSetup, settings[nextItem.type].entitySetup)
-            end
-            if nextItem.entitySetup then
-                itemSetup = table.merge(itemSetup, nextItem.entitySetup)
-            end
-            
-            local itemSettings = {}
-            if settings[nextItem.type] then
-                itemSettings = table.merge(itemSettings, settings[nextItem.type])
-            end
-            itemSettings = table.merge(itemSettings, nextItem)
-            itemSettings.entitySetup = itemSetup
-            
-            
-            local item = creator(nextItem.name, nextItem.pos, nextItem.ang, itemSetup.model or "", self, itemSettings)
+             attachDefaults(nextItem, settings[nextItem.type] or {})
+            local item = creator(nextItem.name, nextItem.pos, nextItem.ang, nextItem.entitySetup.model or "", self, nextItem)
             if item and item.entity then
-                self:modifyEntity(item.entity, itemSetup)
+                self:modifyEntity(item.entity, nextItem.entitySetup)
             end
             if item then
                 self:setRecord(nextItem.type, nil, item)

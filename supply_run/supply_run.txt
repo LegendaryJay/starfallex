@@ -170,7 +170,6 @@ if SERVER then
     -- hitmarkers/mlghit.wav spawn?
     -- hl1/ambience/labdrone2.wav trouble spawning?
     -- NPC_Alyx.Vend_Coin sale?
-
     local controller = Controller:new(config)
 
     

@@ -2,38 +2,67 @@
 --@author Lil'Tugboat
 --@server
 
-wire.adjustOutputs( {"X", "Y"}, {"normal","normal"})
+prop.setPropClean(false)
+prop.setPropUndo(true)
 
-local chair = prop.createSent(chip():getPos() + Vector(0,0,50), Angle(), "Seat_Airboat", false)
-local eyepod = prop.createSent(chip():getPos() + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
-    ClampX = 0,
-    ClampXMax = 0,
-    ClampXMin = 0,
-    ClampY = 0,
-    ClampYMax = 0,
-    ClampYMin = 0,
-    DefaultToZero = 1,
-    Model = "models/jaanus/wiretool/wiretool_siren.mdl",
-    ShowRateOfChange = 1,
-})
+local structure = chip():getAllConstrained()
+local chair = nil
+local camera = nil
+local eyepod = nil
+
+
+for _, ent in pairs(structure) do
+    print(ent)
+    if ent:getClass() == "prop_vehicle_prisoner_pod" then
+        chair = ent
+    elseif ent:getClass() == "gmod_wire_cameracontroller" then
+        camera = ent
+    elseif ent:getClass() == "gmod_wire_eyepod" then
+        eyepod = ent
+    end
+end
+
+if chair == nil then
+    chair = prop.createSent(chip():getPos() + Vector(0,0,50), Angle(), "Seat_Airboat", false)
+    constraint.nocollide(chip(), chair)
+end
+
+if camera == nil then
+    camera = prop.createSent(chip():getPos() + Vector(0,10,0), Angle(),  "gmod_wire_cameracontroller", 1, {
+        AllowZoom = false,
+        AutoMove = false,
+        AutoUnclip = false,
+        AutoUnclip_IgnoreWater = false,
+        DrawParent = true,
+        DrawPlayer = true,
+        FreeMove = false,
+        LocalMove = false,
+        Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
+        ParentLocal = false,
+    })
+    constraint.nocollide(camera, chip())
+end
+
+
+if eyepod == nil then
+    eyepod = prop.createSent(chip():getPos() + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
+        ClampX = 0,
+        ClampXMax = 0,
+        ClampXMin = 0,
+        ClampY = 0,
+        ClampYMax = 0,
+        ClampYMin = 0,
+        DefaultToZero = 1,
+        Model = "models/jaanus/wiretool/wiretool_siren.mdl",
+        ShowRateOfChange = 1,
+    })
+    constraint.nocollide(eyepod, chip())
+end
+
+
 local eyelink = wire.getWirelink(eyepod)
-chair:setNocollideAll(true)
-
-
-local camera = prop.createSent(chip():getPos() + Vector(0,10,0), Angle(),  "gmod_wire_cameracontroller", 1, {
-    AllowZoom = false,
-    AutoMove = false,
-    AutoUnclip = false,
-    AutoUnclip_IgnoreWater = false,
-    DrawParent = true,
-    DrawPlayer = true,
-    FreeMove = false,
-    LocalMove = false,
-    Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
-    ParentLocal = false,
-})
 local camLink = wire.getWirelink(camera)
-    
+
     
 --[[
 eyepod
@@ -81,16 +110,19 @@ out
 local offsetVector = chair:getUp()
 local offsetAngle = 90
 
+camLink.Position = chair:getPos() - chair:getForward() * 25
 camLink.Parent = chair
-camLink.Position = chair:getPos() + chair:getForward() * 25
-camLink.Angle = chair:getAngles():rotateAroundAxis(offsetVector, offsetAngle)
 
 hook.add("think", "thing", function() 
     local driver = chair:getDriver()
     if driver and driver:isValid() and chair then
         eyelink.Enable = 1
         camLink.Activated = 1
-        --chair:setFrozen(false)
+        camLink.Parent = chair
+        camLink.Position = chair:getPos() + chair:getForward() * 25
+        camLink.Angle = chair:getAngles()
+
+        chair:setFrozen(false)
         
         
         local roll = 0
@@ -107,10 +139,11 @@ hook.add("think", "thing", function()
         camAng = camAng:rotateAroundAxis(chair:getUp(), -eyelink.X)
         camAng = camAng:rotateAroundAxis(camAng:getForward(), eyelink.Y)
         camAng = camAng:rotateAroundAxis(camAng:getRight(), roll)
-        
+        local localRot = Vector(eyelink.Y, -eyelink.X, roll)
+        rotation = localToWorld(localRot, Angle(), Vector(), chair:getAngles())
         
         --chair:setAngles(camAng)
-        chair:applyTorque(Vector(-eyelink.X, roll, eyelink.Y ) * 2)
+        chair:applyTorque(rotation - chair:getAngleVelocity() * 0.1)
         
         local speed = 1
         if chair:getDriver():keyDown(IN_KEY.SPEED) then
@@ -119,7 +152,7 @@ hook.add("think", "thing", function()
         
         
         local forward = 0
-        forwardSpeed = 6000 * speed
+        forwardSpeed = 60 * speed
         
         if chair:getDriver():keyDown(IN_KEY.FORWARD) then
             forward = forward + forwardSpeed
@@ -127,7 +160,8 @@ hook.add("think", "thing", function()
         if chair:getDriver():keyDown(IN_KEY.BACK) then
             forward = forward - forwardSpeed
         end
-        chair:applyForceCenter(chair:getForward() * forward)
+        --chair:applyForceCenter(chair:getForward() * forward)
+        chair:setPos(chip():getPos() + Vector(0,0,50))
         
     else
         --chair:setFrozen(true)        

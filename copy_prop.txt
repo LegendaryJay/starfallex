@@ -12,7 +12,7 @@ for index, type in ipairs(spawnableSrc) do
 end
 spawnableSrc = nil
 
-hook.add("PhysgunPickup", "copy", function(ply, ent)
+hook.add("OnPhysgunPickup", "copy", function(ply, ent)
     if ply != owner() or not ply:isCrouching() then return end        
     item = prop.createSent(ent:getPos(), ent:getAngles(), ent:getModel(), true)
     item:setSkin(ent:getSkin())
