@@ -31,7 +31,7 @@ function DropPlatform:initialize(name, pos, ang, entity, controller, settings)
     self.holo:setColor(Color(255, 0, 0, 50))
 
     self:updatePos()
-    self:setEdit(true)    
+    --self:setEdit(true)    
     --controller:addEntityInfo(self)
     return self
 end
