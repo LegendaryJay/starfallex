@@ -1,0 +1,84 @@
+--@name Screen Manager
+--@author Lil'Tugboat
+--@client
+
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+local net = require("SafeNet")
+
+
+local STATE = {
+    INVALID = 0,
+    IDLE = 1,
+    RUNNING = 2,
+    WAITING = 3
+
+}
+
+-- displays
+--@includedir supply_run/client/displays
+local ShopDisplay = require("supply_run/client/displays/shop_display.txt")
+local NeutralDisplay = require("supply_run/client/displays/neutral_display.txt")
+
+
+
+local ScreenManager = class("ScreenManager")
+
+function ScreenManager:initialize(client)
+    self.screens = {}
+    self.screenState = {}
+    self.client = client    
+    self.neutralDisplay = NeutralDisplay:new()
+    
+    return self
+end
+
+function ScreenManager:requestScreenInfo(id)
+    net.start("requestShopName")
+        net.writeFloat(id)
+    net.send()
+end
+
+function ScreenManager:run()
+    hook.add("render", "shopRender", function()
+        ent = render.getScreenEntity()
+        screenId = ent:entIndex()
+        display = self.screens[screenId]
+        state = self.screenState[screenId]
+        
+        if state == nil then
+            self:requestScreenInfo(screenId)
+            self.screenState[screenId] = STATE.INVALID
+        elseif state == STATE.RUNNING then
+            self.screens[screenId]:draw()
+            if ent:obbCenterW():getDistance(player():obbCenterW()) > 200 then
+                self.screenState[screenId] = STATE.IDLE
+            end
+        elseif state == STATE.IDLE then
+            self.neutralDisplay:draw()
+        end
+    end)
+    
+    net.receive("shopName", function() 
+        local id = net.readFloat()
+        local name = net.readString()
+        if name then
+            self.screenState[id] = STATE.IDLE
+            self.screens[id] = ShopDisplay:new(name, self.client)
+        else 
+            self.screenState[id] = STATE.INVALID
+        end
+    end)
+    
+    hook.add("starfallUsed", "turnScreenOn", function(activator, used)
+        if activator != player() then return end
+        local id = used:entIndex()
+        if self.screenState[id] == STATE.IDLE then
+            self.client:updateBalance()
+            self.screenState[id] = STATE.RUNNING
+        end
+    end)
+
+end
+
+return ScreenManager
+

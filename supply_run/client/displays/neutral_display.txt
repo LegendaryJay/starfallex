@@ -1,0 +1,18 @@
+--@name Neutral Display
+--@author Lil'Tugboat
+--@client
+
+local NeutralDisplay = class("NeutralDisplay")
+
+function NeutralDisplay:initialize()
+    return self
+end
+
+function NeutralDisplay:draw()
+    local screenx, screeny = render.getResolution()
+    local font = render.createFont("Coolvetica", 40, nil, true)
+    render.setFont(font)
+    render.drawText(screenx * 0.5, screeny * 0.5, "Press the 'USE' key to shop", TEXT_ALIGN.CENTER)
+end
+
+return NeutralDisplay

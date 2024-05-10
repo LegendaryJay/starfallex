@@ -2,7 +2,9 @@
 --@author Lil'Tugboat
 --@server
 
-local chair = prop.createSent(chip():getPos() + Vector(0,0,50), Angle(), "Seat_Airboat", true)
+wire.adjustOutputs( {"X", "Y"}, {"normal","normal"})
+
+local chair = prop.createSent(chip():getPos() + Vector(0,0,50), Angle(), "Seat_Airboat", false)
 local eyepod = prop.createSent(chip():getPos() + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
     ClampX = 0,
     ClampXMax = 0,
@@ -17,33 +19,120 @@ local eyepod = prop.createSent(chip():getPos() + Vector(10,0,0), Angle(), "gmod_
 local eyelink = wire.getWirelink(eyepod)
 chair:setNocollideAll(true)
 
+
+local camera = prop.createSent(chip():getPos() + Vector(0,10,0), Angle(),  "gmod_wire_cameracontroller", 1, {
+    AllowZoom = false,
+    AutoMove = false,
+    AutoUnclip = false,
+    AutoUnclip_IgnoreWater = false,
+    DrawParent = true,
+    DrawPlayer = true,
+    FreeMove = false,
+    LocalMove = false,
+    Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
+    ParentLocal = false,
+})
+local camLink = wire.getWirelink(camera)
+    
+    
 --[[
+eyepod
 -- out
-1	=	X
-2	=	wirelink
-3	=	Y
-4	=	XY
+1    =    X
+2    =    wirelink
+3    =    Y
+4    =    XY
 
 
 --in
-1	=	Enable
-2	=	SetPitch
-3	=	SetYaw
-4	=	SetViewAngle
-5	=	UnfreezePitch
-6	=	UnfreezeYaw
+1    =    Enable
+2    =    SetPitch
+3    =    SetYaw
+4    =    SetViewAngle
+5    =    UnfreezePitch
+6    =    UnfreezeYaw
+
+
+cam
+in
+1    =    Activated
+2    =    Direction
+3    =    Angle
+4    =    Position
+5    =    Distance
+6    =    UnRoll
+7    =    Parent
+8    =    FilterEntities
+9    =    FLIR
+10    =    FOV
+
+out
+1    =    wirelink
+2    =    On
+3    =    HitPos
+4    =    CamPos
+5    =    CamDir
+6    =    CamAng
+7    =    Trace
 ]]
 
 
-print(chair)
+
+local offsetVector = chair:getUp()
+local offsetAngle = 90
+
+camLink.Parent = chair
+camLink.Position = chair:getPos() + chair:getForward() * 25
+camLink.Angle = chair:getAngles():rotateAroundAxis(offsetVector, offsetAngle)
 
 hook.add("think", "thing", function() 
     local driver = chair:getDriver()
     if driver and driver:isValid() and chair then
         eyelink.Enable = 1
-        notification.addLegacy(tostring(eyelink.XY), NOTIFY.GENERIC, 1)
+        camLink.Activated = 1
+        --chair:setFrozen(false)
+        
+        
+        local roll = 0
+        rollSpeed = 3
+        if chair:getDriver():keyDown(IN_KEY.MOVERIGHT) then
+            roll = roll - rollSpeed
+        end
+        if chair:getDriver():keyDown(IN_KEY.MOVELEFT) then
+            roll = roll + rollSpeed
+        end
+        
+        local camAng = chair:getAngles()
+        
+        camAng = camAng:rotateAroundAxis(chair:getUp(), -eyelink.X)
+        camAng = camAng:rotateAroundAxis(camAng:getForward(), eyelink.Y)
+        camAng = camAng:rotateAroundAxis(camAng:getRight(), roll)
+        
+        
+        --chair:setAngles(camAng)
+        chair:applyTorque(Vector(-eyelink.X, roll, eyelink.Y ) * 2)
+        
+        local speed = 1
+        if chair:getDriver():keyDown(IN_KEY.SPEED) then
+            speed = 5
+        end
+        
+        
+        local forward = 0
+        forwardSpeed = 6000 * speed
+        
+        if chair:getDriver():keyDown(IN_KEY.FORWARD) then
+            forward = forward + forwardSpeed
+        end
+        if chair:getDriver():keyDown(IN_KEY.BACK) then
+            forward = forward - forwardSpeed
+        end
+        chair:applyForceCenter(chair:getForward() * forward)
+        
     else
+        --chair:setFrozen(true)        
         eyelink.Enable = 0
+        camLink.Activated = 0
     end
 
 end)

@@ -9,7 +9,6 @@ function QueueManager:initialize(name, spawnFunction, condition)
     self.spawnFunction = spawnFunction
     self.condition = condition or function() return true end
     self.queue = {}
-    print("create_" .. self.name)
 end
 
 function QueueManager:queueComponent(component)

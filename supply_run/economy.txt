@@ -1,58 +1,58 @@
 --@name Economy
 --@author Lil'Tugboat
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
 --@shared
+local net = require("SafeNet")
 
 if SERVER then 
     local Economy = class("Economy")
 
     function Economy:initialize(initialBalance)
         self.initialBalance = initialBalance or 0
-        self.balances = {}  -- To hold each user's balance
+        self.balances = {}
+        net.receive("updateBalance", function (_, ply)
+            local amount = net.readFloat()
+            userId = ply:getSteamID()
+            self:updateBalance(userId, amount)
+        end)
         return self
     end
     function Economy:createUser(userId)
-        print("created ".. userId)
         if not self.balances[userId] then
+            print("created ".. userId)
             self.balances[userId] = self.initialBalance
         end
     end
     
-    
     function Economy:getBalance(userId)
-        print("Balance: " .. self.balances[userId])
+        self:createUser(userId)
         return self.balances[userId] or self.initialBalance
     end
+
     
-    function Economy:addMoney(userId, amount)
-        print("Add $" .. amount .. " to " .. userId)
-        if not self.balances[userId] then
-            self:createUser(userId)  
-        end
-        self.balances[userId] = self.balances[userId] + amount
+    function Economy:sell(userId, amount)
+        self:updateBalance(userId, amount)
     end
     
-    function Economy:removeMoney(userId, amount)
-        if not self.balances[userId] then
-            self:createUser(userId)
-        end
-        if self.balances[userId] >= amount then
-            self.balances[userId] = self.balances[userId] - amount
-            print("Removed $" .. amount .. " from " .. userId)
+    function Economy:buy(userId, amount)
+        if self:getBalance(userId) >= amount then
+            self:updateBalance(userId, -amount)
             return true
         else
             print("Insufficient funds from " .. userId)
             return false  
         end
-    end
-    
-    function Economy:transferMoney(fromUserId, toUserId, amount)
-        if self:removeMoney(fromUserId, amount) then
-            self:addMoney(toUserId, amount)
-            return true
-        else
-            return false 
+    end    
+    function Economy:updateBalance(userId, amount)
+        self.balances[userId] = self:getBalance(userId) + amount
+        if amount > 0 then
+            print("Balance changed of " .. amount .. " for " .. userId)
         end
+        net.start("balance")
+            net.writeFloat(self:getBalance(userId))
+        net.send(ply)
     end
+
     return Economy
 end
 
@@ -61,9 +61,11 @@ if CLIENT then
 
     function Economy:initialize()
         self.balance = 0 
+        
         net.receive("balance", function() 
-            self:updateBalance(net.readFloat())
+            self.balance = net.readFloat()
         end)
+        
         return self
     end
 
@@ -72,26 +74,28 @@ if CLIENT then
     end
 
     function Economy:buy(amount)
-        if self.canBuy(amount) then
-            self.myBalance = self.myBalance - amount
+        if self:canBuy(amount) then
+            self:updateBalance(-amount)
             return true
         end
         return false
     end
     function Economy:sell(amount)
-        self.myBalance = self.myBalance - amount
+        self:updateBalance(amount)
         return true
 
-    end
-
-    function Economy:updateBalance(newBalance)
-        self.balance = newBalance
+    end    
+    
+    function Economy:getBalance()
+        return self.balance
     end
     
-    function Economy:requestBalanceUpdate()
-        
+    function Economy:updateBalance(amount)
+        amount = amount or 0
+        self.balance = self.balance + amount
+        net.start("updateBalance")
+            net.writeFloat(amount)
+        net.send()
     end
-
-
     return Economy
 end

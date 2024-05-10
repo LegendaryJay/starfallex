@@ -1,0 +1,121 @@
+--@name Shop Display
+--@author Lil'Tugboat
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@include supply_run/client/button.txt
+--@client
+
+local net = require("SafeNet")
+
+local Button = require("supply_run/client/button.txt")
+    
+local ShopDisplay = class("ShopDisplay")
+
+function ShopDisplay:initialize(origin, client)
+    local jobs = client:getJobsByOrigin(origin)
+    
+    self.jobsByDest = {}
+    
+    for key, job in pairs(jobs) do
+        if self.jobsByDest[job.destination] == nil then
+            self.jobsByDest[job.destination] = {}
+        end
+        table.insert(self.jobsByDest[job.destination], job)
+    end    
+    
+    self.products = client:getAllProducts()
+    self.origin = origin
+    self.buttons = {}
+    self.client = client
+    
+    
+end
+
+function ShopDisplay:draw()
+    local screenWidth, screenHeight = render.getResolution()
+    
+    -- Define colors and fonts
+    local backgroundColor = Color(170, 220, 220)
+    local headerColor = Color(0, 120, 120)
+    local textColor = Color(255, 255, 255)
+    
+    local font = "DermaDefault"
+
+    local margin = 5
+
+    -- Draw Title
+    local th = 25
+    local titleFont = render.createFont(font, th, nil, true)
+    render.setFont(titleFont)
+    render.drawSimpleText(screenWidth * 0.5, th, self.origin, TEXT_ALIGN.CENTER, TEXT_ALIGN.CENTER)
+    
+    local balanceFont = render.createFont(font, 17, nil, true)
+    render.setFont(balanceFont)
+    render.drawSimpleText(screenWidth - margin, margin, "Balance: $" .. self.client:getBalance(), TEXT_ALIGN.RIGHT, TEXT_ALIGN.TOP)
+    
+    local yVal = th + margin
+    
+    for destination, jobs in pairs(self.jobsByDest) do    
+        -- Draw Category
+        ch = 18
+        local catFont = render.createFont(font, ch, nil, true)
+        render.setFont(catFont)
+        render.setColor(Color())
+            render.drawSimpleText(th, margin + yVal, "Hauls to " .. destination, TEXT_ALIGN.LEFT)
+        yVal = yVal + ch + margin * 2
+        
+        for key, job in pairs(jobs) do
+            -- info panel
+            px = 90
+            hh = 18
+            py = yVal
+            pw = 300
+            ph = 16
+            -- Draw header
+            local headerFont = render.createFont(font, hh, nil, true)
+            render.setColor(headerColor)
+            render.drawRect(px, py, pw, hh)
+            render.setFont(headerFont)
+            render.setColor(textColor)
+            render.drawSimpleText(margin + px, py, job.item, TEXT_ALIGN.LEFT)
+            render.drawSimpleText(pw + px - margin, py, self.products[job.item].entitySetup.weight .. "wt", TEXT_ALIGN.RIGHT)
+      
+            -- Draw label area
+            render.setColor(backgroundColor)
+            render.drawRect(px + (pw - margin) * 0.5 + margin, py + hh, (pw - margin) * 0.5, ph)
+            render.drawRect(px, py + hh, (pw - margin) * 0.5, ph)
+            
+            local labelFont = render.createFont(font, ph, nil, true)
+            render.setFont(labelFont)
+            render.setColor(Color(0,0,0))
+            render.drawSimpleText(px + margin, py + hh, "Cost: " .. job.cost, TEXT_ALIGN.LEFT)
+            render.drawSimpleText(px + pw * 0.5  + margin * 1.5, py + hh, "Pay: " .. job.pay, TEXT_ALIGN.LEFT)
+            
+            sizeY = ph + hh
+            -- button section
+            local by = yVal + margin
+            local bh = sizeY - 2 * margin
+            local bw = bh + 8
+            local bx = px - margin - bw
+            
+            local buttonId = job.index
+            if not self.buttons[buttonId] then 
+                self.buttons[buttonId] = Button:new("Haul",  function() self:buy(job) end) 
+                self.buttons[buttonId]:setButton(bx, by, bw, bh)
+            end
+            self.buttons[buttonId]:update()
+            self.buttons[buttonId]:draw()
+            
+            yVal = yVal + ph * 2 + margin
+        end
+    end
+end
+
+function ShopDisplay:buy(job)
+    if self.client:buy(job.cost) then
+        net.start(self.origin)
+            net.writeFloat(job.index)
+        net.send()
+    end
+end
+
+return ShopDisplay

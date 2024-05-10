@@ -1,0 +1,54 @@
+--@name Job Manager
+--@author Lil'Tugboat
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@shared
+
+local net = require("SafeNet")
+local JobManager = class("JobManager")
+
+function JobManager:initialize(jobs)
+    self.jobs = jobs or {}
+    if SERVER then 
+        net.receive("requestJobs", function(_, ply)
+            net.start("jobs")
+                net.writeTable(self.jobs)
+            net.send(ply)
+        end)
+        self:generateJobData()
+    else
+        net.start("requestJobs")
+        net.send()
+        
+        net.receive("jobs", function()
+            self.jobs = net.readTable()
+        end)
+    end
+end
+
+    
+function JobManager:generateJobData()
+    for index, job in ipairs(self.jobs) do
+        job.index = index
+    end
+end
+    
+function JobManager:getJob(index)
+    return self.jobs[index]
+end
+
+
+function JobManager:getAllJobs()
+    return self.jobs
+end
+
+function JobManager:getJobsByOrigin(origin)
+    local matchingJobs = {} 
+    for _, job in ipairs(self.jobs) do
+        if job.origin == origin then  
+            table.insert(matchingJobs, job) 
+        end
+    end
+    return matchingJobs
+end
+
+return JobManager

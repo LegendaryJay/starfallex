@@ -17,6 +17,8 @@ function Package:initialize(entity, ownerId, product, controller)
     end)
     
     self:initializeUpdateHook()
+    
+    controller:addEntityInfo(self)
     return self
 end
 
@@ -63,7 +65,7 @@ end
 
 function Package:sell()
     if self.entity and self.entity:isValid() then
-        self.controller:addMoneyToUser(self.ownerId, self.product.pay)
+        self.controller:sell(self.ownerId, self.product.pay)
     end
     self:remove()
 end

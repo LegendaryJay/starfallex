@@ -1,0 +1,36 @@
+--@name anti undo
+--@author Lil'Tugboat
+--@server
+
+prop.setPropUndo(true)
+
+local propCount = 3
+local props = {}
+local lastWarn = 0
+local warnDelay = 3
+hook.add("tick", "probWatcher", function() 
+    if not props[propCount] or not props[propCount]:isValid() then
+        if timer.curtime() - lastWarn > warnDelay then
+            lastWarn = timer.curtime()
+            print("Protecting stuff. Say '!off' to shutdown")
+        end
+        for index = 1, propCount, 1 do
+            item = props[index]
+            if item == nil or not item:isValid() then
+                if not prop.canSpawn() then
+                    break
+                end
+                props[index] = prop.create(chip():getPos() + Vector(-(propCount * 0.5 - index + 0.5) * 20, 0, 20), Angle(), "models/Items/combine_rifle_ammo01.mdl", true)
+            end
+        end
+    end
+
+
+end)
+
+
+hook.add("PlayerChat", "shutdown", function(ply, text)
+    if ply == owner() and text == "!off" then
+        throw("Goodnight")
+    end
+end)

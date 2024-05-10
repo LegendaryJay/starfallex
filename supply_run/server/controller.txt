@@ -3,8 +3,10 @@
 --@includedir supply_run
 --@includedir supply_run/server
 --@includedir supply_run/server/components/
-
 --@server
+
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+local net = require("SafeNet")
 
 -- components
 local Package = require("supply_run/server/components/package.txt")
@@ -15,15 +17,18 @@ local DropPlatform = require("supply_run/server/components/drop_platform.txt")
 //managers
 local StateRecorder = require("supply_run/server/state_recorder.txt")
 local EntityManager = require("supply_run/server/entity_manager.txt")
-local ProductManager = require("supply_run/server/product_manager.txt")
 local QueueManager = require("supply_run/server/queue_manager.txt")
 
 // shared
 local Economy = require("supply_run/economy.txt")
+local ProductManager = require("supply_run/product_manager.txt")
+local JobManager = require("supply_run/job_manager.txt")
 
 local Controller = class("Controller")
 function Controller:initialize(configs)
     self.productManager = ProductManager:new(configs.products)
+    self.jobManager = JobManager:new(configs.jobs)
+    
     self.entityManager = EntityManager:new() 
     self.queueManager = QueueManager:new("controller", function(item) self:spawnNext(item) end)
     self.economy = Economy:new(configs.defaults.Economy.startingCash or 0)
@@ -33,6 +38,20 @@ function Controller:initialize(configs)
     for key, value in pairs(configs) do
         self:setRecordSet(key, value)
     end
+    
+    net.receive("requestShopName", function(_, ply)
+        id = net.readFloat()
+        ent = entity(id)
+        name = ""
+        if ent and ent:isValid() then
+            local shop = self:getEntityInfo(ent)
+            net.start("shopName")
+                net.writeFloat(id)
+                net.writeString(shop.name or nil)
+            net.send(ply)
+        end
+    end)
+    
     
     self:loadSnapshot(self.stateRecorder:getRecord("snapshot", "state"))
     return self
@@ -46,16 +65,29 @@ function Controller:loadSnapshot(state)
     end
 end
 
--- product stuff
-function Controller:addProductInfo(object)
-    self.productManager:addProductInfo(object)
+-- Products
+function Controller:getProduct(name)
+    return self.productManager:getProduct(name)
 end
-function Controller:getProductData(startLocation)
-    return self.productManager:getProductData(startLocation)
+
+function Controller:getAllProducts()
+    return self.productManager:getAllProducts()
 end
-function Controller:getShopProduct(shopName, key)
-    return self.productManager:getShopProduct(shopName, key)
+
+
+-- jobs
+function Controller:getJob(index)
+    return self.jobManager:getJob(index)
 end
+
+function Controller:getAllJobs()
+    return self.jobManager:getAllJobs()
+end
+
+function Controller:getJobsByOrigin(origin)
+    return self.jobManager:getJobsByOrigin(origin)
+end
+
 
 -- entity info
 function Controller:addEntityInfo(object)
@@ -114,22 +146,21 @@ function Controller:getUserBalance(userId)
     return self.economy:getBalance(userId)
 end
 
-function Controller:addMoneyToUser(userId, amount)
-    self.economy:addMoney(userId, amount)
+
+function Controller:sell(userId, amount)
+    self.economy:sell(userId, amount)
 end
 
-function Controller:removeMoneyFromUser(userId, amount)
-    return self.economy:removeMoney(userId, amount)
-end
-
-function Controller:transferMoneyBetweenUsers(fromUserId, toUserId, amount)
-    return self.economy:transferMoney(fromUserId, toUserId, amount)
+function Controller:buy(userId, amount)
+    return self.economy:buy(userId, amount)
 end
 
 -- Queue stuff
 function Controller:queueComponent(data, condition)
     self.queueManager:queueComponent(data, condition)
 end
+
+-- Dirty dirty things
 function Controller:spawnNext(nextItem)
     if nextItem then
         local componentCreators = {
@@ -141,10 +172,26 @@ function Controller:spawnNext(nextItem)
         local creator = componentCreators[nextItem.type]
         if creator then
             local settings = self:getRecord("defaults")
-            local mergedSettings = table.inherit(nextItem, settings[nextItem.type] or {})
-            local item = creator(nextItem.name, nextItem.pos, nextItem.ang, nextItem.model or "", self, mergedSettings)
+            
+            local itemSetup = {}
+            if settings[nextItem.type] and settings[nextItem.type].entitySetup then
+                itemSetup = table.merge(itemSetup, settings[nextItem.type].entitySetup)
+            end
+            if nextItem.entitySetup then
+                itemSetup = table.merge(itemSetup, nextItem.entitySetup)
+            end
+            
+            local itemSettings = {}
+            if settings[nextItem.type] then
+                itemSettings = table.merge(itemSettings, settings[nextItem.type])
+            end
+            itemSettings = table.merge(itemSettings, nextItem)
+            itemSettings.entitySetup = itemSetup
+            
+            
+            local item = creator(nextItem.name, nextItem.pos, nextItem.ang, itemSetup.model or "", self, itemSettings)
             if item and item.entity then
-                self:modifyEntity(item.entity, mergedSettings)
+                self:modifyEntity(item.entity, itemSetup)
             end
             if item then
                 self:setRecord(nextItem.type, nil, item)
@@ -155,5 +202,16 @@ function Controller:spawnNext(nextItem)
     end
 end
 
+function Controller:getAllScreenEntities()
+    local screens = self:getRecordSet("ShopScreen", function(key, value)
+        return value.entity and value.entity:isValid()
+    end)
+    local resultTable = {}
+    for key, screen in pairs(screens) do
+        resultTable[screen.entity:getEntIndex()] = screen.name
+    end
+    return resultTable
+        
+end
 
 return Controller

@@ -1,20 +1,77 @@
 --@name client controller
 --@author Lil'Tugboat
---@include supply_run/economy.txt
+--@includedir supply_run
+--@includedir supply_run/client
 --@client
 
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+local net = require("SafeNet")
+
+
+// shared
 local Economy = require("supply_run/economy.txt")
+local ProductManager = require("supply_run/product_manager.txt")
+local JobManager = require("supply_run/job_manager.txt")
+
+//client
+local ScreenController = require("supply_run/client/screen_manager.txt")
+
 
 local ClientController = class("ClientController")
 function ClientController:initialize()
-    self.screens = {}
+    self.productManager = ProductManager:new()
+    self.jobManager = JobManager:new()
     self.economy = Economy:new()
+    ScreenController:new(self):run()
+    
+    
+end
+
+-- economy
+function ClientController:canBuy(amount)
+    return self.economy:canBuy(amount)
 end
 
 function ClientController:buy(amount)
-
+    return self.economy:buy(amount)
 end
-function ClientController:sell(amount) end
+
+function ClientController:sell(amount)
+    return self.economy:sell(amount)
+end    
+
+function ClientController:getBalance()
+    return self.economy:getBalance()
+end
+
+function ClientController:updateBalance()
+    self.economy:updateBalance()
+end
+
+-- Products
+function ClientController:getProduct(name)
+    return self.productManager:getProduct(name)
+end
+
+function ClientController:getAllProducts()
+    return self.productManager:getAllProducts()
+end
+
+
+-- jobs
+function ClientController:getJob(index)
+    return self.jobManager:getJob(index)
+end
+
+function ClientController:getAllJobs()
+    return self.jobManager:getAllJobs()
+end
+
+function ClientController:getJobsByOrigin(origin)
+    return self.jobManager:getJobsByOrigin(origin)
+end
+
+
 
 return ClientController
 

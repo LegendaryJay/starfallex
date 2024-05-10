@@ -26,11 +26,10 @@ function SpawnPlatform:initialize(name, pos, ang, entity, controller, settings)
     self.controller = controller
     net.receive(name, function(_, ply)
         index = net.readFloat()
-        local product = self.controller:getShopProduct(self.name, index)
-        local cost = product.cost
-        if controller:removeMoneyFromUser(ply:getSteamID(), cost) then
-            self:queueSpawn(ply:getSteamID(), product)
-        end
+        local job = self.controller:getJob(index)
+        local product = table.copy(self.controller:getProduct(job.item))
+        product = table.merge(product, job)
+        self:queueSpawn(ply:getSteamID(), product)
     end)
     controller:addEntityInfo(self)
     return self
@@ -69,15 +68,15 @@ end
 
 
 function SpawnPlatform:getSpawnPos(product)
-    itemOffset = product.spawnInfo.spawnPos or Vector()
+    itemOffset = product.entityInfo.spawnPos or Vector()
     return localToWorld(itemOffset, Angle(), self.top, self.ang )
 end
 
 function SpawnPlatform:spawnCondition(product)
-    local flatHalfSize =  Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0) * 0.5
+    local flatHalfSize =  Vector(product.entityInfo.size[1], product.entityInfo.size[2], 0) * 0.5
     local t = trace.hull(
-        product.pos - Vector(0,0, product.spawnInfo.size[3] * 0.5), 
-        product.pos  + Vector(0,0, product.spawnInfo.size[3] * 0.5) , 
+        product.pos - Vector(0,0, product.entityInfo.size[3] * 0.5), 
+        product.pos  + Vector(0,0, product.entityInfo.size[3] * 0.5) , 
         -flatHalfSize,
         flatHalfSize,
         self.entity,
@@ -96,22 +95,21 @@ function SpawnPlatform:spawnCondition(product)
     else
         if not self.problemHolo or not self.problemHolo:isValid() then
         
-            posOffset = product.spawnInfo.center
+            posOffset = product.entityInfo.center
             posOffset = posOffset:setZ(0)
             self.problemHolo = hologram.create(pos - posOffset,ang, "models/sprops/cuboids/height48/size_0/cube_42x42x48.mdl")
-            local size = Vector(product.spawnInfo.size[1], product.spawnInfo.size[2], 0)
+            local size = Vector(product.entityInfo.size[1], product.entityInfo.size[2], 0)
             self.problemHolo:setSize(size)
             self.problemHolo:setMaterial("phoenix_storms/fender_white")
             self.problemHolo:setColor(Color(255, 0, 0, 255))
         
-            self.packageHolo = hologram.create(pos,ang, product.model, Vector())
-            self.controller:modifyEntity(self.holoEntity, product)
+            self.packageHolo = hologram.create(pos,ang, product.entitySetup.model, Vector())
         end
         
         self.problemHolo:setPos(t.HitPos + Vector(math.random(),math.random(),math.random()))
         self.packageHolo:setClip(1, true, t.HitPos, -self.ang:getUp())
         self.packageHolo:setScale(Vector(1,1,1))
-        
+        self.controller:modifyEntity(self.holoEntity, product)
     end
     return false
 end

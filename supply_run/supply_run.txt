@@ -7,88 +7,99 @@ local net = require("SafeNet")
 if SERVER then
     --@include supply_run/server/controller.txt
     local Controller = require("supply_run/server/controller.txt")
-    local products = {
-        {
-            model = "models/props_junk/garbage_newspaper001a.mdl",
-            weight = 5,
-            name = "Documents",
-            color = Color(255, 0, 0),
-            mat = "models/XQM//Deg360",
-            skin = 0,
-            routes = {
-                {
-                    origin = "Spawn Office", 
-                    destination = "Police Station", 
-                    cost = 20, 
-                    pay = 100,
-                },
-                {
-                    origin = "Spawn Office", 
-                    destination = "Junk Shed", 
-                    cost = 20, 
-                    pay = 100,
-                },
-                {
-                    origin = "Tub Thrifters", 
-                    destination = "Police Station", 
-                    cost = 20, 
-                    pay = 100,
-                },
-                {
-                    origin = "Tub Thrifters", 
-                    destination = "Junk Shed", 
-                    cost = 20, 
-                    pay = 100,
-                },
-    
+   local products = {
+        ["Documents"] = {
+            entitySetup = {
+                color = Color(255, 0, 0),
+                model = "models/props_junk/garbage_newspaper001a.mdl",
+                weight = 5,
+                mat = "models/XQM//Deg360",
+                skin = 0,
             }
         },
-        {
-            model = "models/props_vehicles/car002b_physics.mdl",
-            weight = 1000,
-            name = "Junk Car",
-            --mat = "models/XQM//Deg360",
-            skin = 0,
-            routes = {
-                {
-                    origin = "Spawn Office", 
-                    destination = "Junk Shed", 
-                    cost = 12500, 
-                    pay = 32500,
-                },
-    
+        ["Junk Car"] = {
+            entitySetup = {
+                model = "models/props_vehicles/car002b_physics.mdl",
+                weight = 1000,
+                skin = 0,
             }
         },
-        {
-            model = "models/props_wasteland/cargo_container01.mdl",
-            weight = 2500,
-            name = "Shipping Container",
-            --mat = "models/XQM//Deg360",
-            skin = 0,
-            routes = {
-                {
-                    origin = "Spawn Office", 
-                    destination = "Junk Shed", 
-                    cost = 24500, 
-                    pay = 74500,
-                },
-    
+        ["Shipping Container"] = {
+            entitySetup = {
+                model = "models/props_wasteland/cargo_container01.mdl",
+                weight = 2500,
+                skin = 0,
             }
         }
     }
+
+    local jobs = {
+        {
+            item = "Documents",
+            origin = "Spawn Office",
+            destination = "Police Station",
+            cost = 20,
+            pay = 100,
+        },
+        {
+            item = "Documents",
+            origin = "Spawn Office",
+            destination = "Junk Shed",
+            cost = 20,
+            pay = 100,
+        },
+        {
+            item = "Documents",
+            origin = "Tub Thrifters",
+            destination = "Police Station",
+            cost = 20,
+            pay = 100,
+        },
+        {
+            item = "Documents",
+            origin = "Tub Thrifters",
+            destination = "Junk Shed",
+            cost = 20,
+            pay = 100,
+        },
+        {
+            item = "Junk Car",
+            origin = "Spawn Office",
+            destination = "Junk Shed",
+            cost = 12500,
+            pay = 32500,
+        },
+        {
+            item = "Shipping Container",
+            origin = "Spawn Office",
+            destination = "Junk Shed",
+            cost = 24500,
+            pay = 74500,
+        }
+    }
+
         
     
     local defaultSettings = {
         DropPlatform = {
-            mat = "phoenix_storms/stripes",
+            entitySetup = {
+                mat = "phoenix_storms/stripes",
+                weight = 2500,
+            },
             radius = 50
         },
         ShopScreen = {
-            model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
-            mat =   "editor/flat"
+            entitySetup = {
+                model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
+                mat =   "editor/flat"
+            } 
         },
         SpawnPlatform = {
-            model = "" -- "models/props_junk/wood_pallet001a.mdl",
+            entitySetup = {
+                model = "",
+                weight = 2500,
+                skin = 0,
+            }
         },
         Economy = {
             startingCash = 99200
@@ -128,10 +139,13 @@ if SERVER then
                 name = "Junk Shed",
                 ang = Angle(),  -- Default angle
                 pos = chip():getPos() + Vector(200, -100, 0),
-                model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
-                color = Color(255, 0, 255),
-                skin = 0 ,
-                solid = false,
+                entitySetup = {
+                    model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
+                    color = Color(255, 0, 255),
+                    skin = 0 ,
+                    solid = false,
+                },
+
             },
             {
                 type = "DropPlatform",
@@ -144,6 +158,7 @@ if SERVER then
     
     local config = {
         products = products,
+        jobs = jobs,
         defaults = defaultSettings,
         snapshot = snapshot
     }
@@ -161,10 +176,24 @@ if SERVER then
     
 else
     --@include supply_run/client/client_controller.txt
-    --@include supply_run/client/shop_display.txt
+    timer.create("init delay", 1, 1, function() 
+        local client = require("supply_run/client/client_controller.txt"):new()
+    end)
+    
+    
+    
+--[[
 
-    local ClientControler = require("supply_run/client/client_controller.txt")
-    local client = ClientControler:new()
+    Things i need to know
+        - display stuff
+            - shop names
+            - products
+            - jobs    
+        
+            - my balance
+        
+    
+    
     
     local ShopDisplay = require("supply_run/client/shop_display.txt")
     local shopDisplay = ShopDisplay:new()
@@ -181,5 +210,6 @@ else
         shopDisplay:handleNetReceive()
     end)
     
+]]
     
 end

@@ -1,0 +1,53 @@
+--@name Product Manager
+--@author Lil'Tugboat
+--@include https://raw.githubusercontent.com/Jacbo1/Public-Starfall/main/SafeNet/safeNet.lua as SafeNet
+--@shared
+
+local net = require("SafeNet")
+local ProductManager = class("ProductManager")
+
+function ProductManager:initialize(products)
+    self.products = products or {}
+    
+    if SERVER then 
+        net.receive("requestProducts", function(_, ply)
+            net.start("products")
+                net.writeTable(self.products)
+            net.send(ply)
+        end)
+        self:generateProductData()
+    else
+        net.start("requestProducts")
+        net.send()
+        
+        net.receive("products", function()
+            self.products = net.readTable()
+        end)
+    end
+end
+
+    
+function ProductManager:generateProductData()
+    for key, product in pairs(self.products) do
+        local holo = hologram.create(Vector(), Angle(), product.entitySetup.model)
+        product.entityInfo = {}
+        product.entityInfo.size = holo:obbSize()
+        product.entityInfo.min = holo:obbMins()
+        product.entityInfo.max = holo:obbMaxs()
+        product.entityInfo.center = holo:obbCenter()
+        product.entityInfo.spawnPos = Vector(0, 0, holo:obbSize()[3] * 0.5) - holo:obbCenter()
+        holo:remove()
+    end
+end
+    
+function ProductManager:getProduct(name)
+    return self.products[name]
+end
+
+
+function ProductManager:getAllProducts()
+    return self.products
+end
+
+
+return ProductManager
