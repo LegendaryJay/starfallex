@@ -10,27 +10,77 @@ if SERVER then
    local products = {
         ["Documents"] = {
             entitySetup = {
-                color = Color(255, 0, 0),
+                color = Color(255, 255, 255),
                 model = "models/props_junk/garbage_newspaper001a.mdl",
                 weight = 5,
-                mat = "models/XQM//Deg360",
+                mat = "",
+                skin = 0,
+            }
+        },
+        ["Concrete Small"] = {
+            entitySetup = {
+                model = "models/props/de_prodigy/concretebags4.mdl",
+                weight = 200,
+                skin = 0,
+            }
+        },
+        ["Concrete Medium"] = {
+            entitySetup = {
+                model = "models/props/de_prodigy/concretebags3.mdl",
+                weight = 400,
+                skin = 0,
+            }
+        },
+        ["Concrete Large"] = {
+            entitySetup = {
+                model = "models/props/de_prodigy/concretebags2.mdl",
+                weight = 600,
+                skin = 0,
+            }
+        },
+        ["Concrete Huge"] = {
+            entitySetup = {
+                model = "models/props/de_prodigy/concretebags.mdl",
+                weight = 600,
                 skin = 0,
             }
         },
         ["Junk Car"] = {
             entitySetup = {
                 model = "models/props_vehicles/car002b_physics.mdl",
-                weight = 1000,
+                weight = 1500,
                 skin = 0,
             }
         },
-        ["Shipping Container"] = {
+        ["Pills"] = {
             entitySetup = {
-                model = "models/props_wasteland/cargo_container01.mdl",
-                weight = 2500,
+                model = "models/props_lab/jar01a.mdl",
+                weight = 5,
+                skin = 0,
+            }
+        },
+        ["Silo"] = {
+            entitySetup = {
+                model = "models/props_silo/fuel_cask.mdl",
+                weight = 2000,
+                skin = 0,
+            }
+        },
+        ["Hay"] = {
+            entitySetup = {
+                model = "models/props/de_inferno/hay_bails.mdl",
+                weight = 100,
+                skin = 0,
+            }
+        },
+        ["Box"] = {
+            entitySetup = {
+                model = "models/props_junk/cardboard_box003a.mdl",
+                weight = 10,
                 skin = 0,
             }
         }
+                 
     }
 
     local jobs = {
@@ -38,44 +88,72 @@ if SERVER then
             item = "Documents",
             origin = "Spawn Office",
             destination = "Police Station",
-            cost = 20,
-            pay = 100,
+            cost = 10,
+            pay = 20,
         },
         {
-            item = "Documents",
-            origin = "Spawn Office",
-            destination = "Junk Shed",
-            cost = 20,
-            pay = 100,
+            item = "Concrete Small",
+            origin = "Factory",
+            destination = "Construction Site",
+            cost = 1500,
+            pay = 3500,
         },
         {
-            item = "Documents",
-            origin = "Tub Thrifters",
-            destination = "Police Station",
-            cost = 20,
-            pay = 100,
+            item = "Concrete Medium",
+            origin = "Factory",
+            destination = "Construction Site",
+            cost = 2500,
+            pay = 7000,
         },
         {
-            item = "Documents",
-            origin = "Tub Thrifters",
-            destination = "Junk Shed",
-            cost = 20,
-            pay = 100,
+            item = "Concrete Large",
+            origin = "Factory",
+            destination = "Construction Site",
+            cost = 3500,
+            pay = 9500,
+        },
+        {
+            item = "Concrete Huge",
+            origin = "Factory",
+            destination = "Construction Site",
+            cost = 4500,
+            pay = 11000,
         },
         {
             item = "Junk Car",
-            origin = "Spawn Office",
+            origin = "Dealership",
             destination = "Junk Shed",
-            cost = 12500,
-            pay = 32500,
+            cost = 13000,
+            pay = 30000,
         },
         {
-            item = "Shipping Container",
-            origin = "Spawn Office",
-            destination = "Junk Shed",
-            cost = 24500,
-            pay = 74500,
-        }
+            item = "Pills",
+            origin = "Hospital",
+            destination = "Big House",
+            cost = 60,
+            pay = 130,
+        },
+        {
+            item = "Silo",
+            origin = "Hardware Store",
+            destination = "Farm",
+            cost = 70000,
+            pay = 200000,
+        },
+        {
+            item = "Hay",
+            origin = "Farm",
+            destination = "OFC",
+            cost = 500,
+            pay = 1200,
+        },
+        {
+            item = "Box",
+            origin = "County Post",
+            destination = "Big House",
+            cost = 500,
+            pay = 1300,
+        },
     }
 
         
@@ -84,6 +162,7 @@ if SERVER then
         DropPlatform = {
             entitySetup = {
                 mat = "phoenix_storms/stripes",
+                modal = "",
                 weight = 2500,
             },
             radius = 50
@@ -96,63 +175,149 @@ if SERVER then
         },
         SpawnPlatform = {
             entitySetup = {
-                model = "",
+                model = "models/sprops/rectangles/size_5/rect_48x48x3.mdl",
+                mat = "phoenix_storms/stripes",
                 weight = 2500,
                 skin = 0,
             }
         },
-        Economy = {
-            startingCash = 50
         
-        }
+        Economy = {
+            startingCash = 100000000
+        
+        },
+        
     }
     
     local snapshot = {
-        map = "gm_blocksand",
+        map = "rp_newexton2_v4h",
         state = {
             {
                 type = "SpawnPlatform",
                 name = "Spawn Office",
                 ang = Angle(),  -- Assuming Angle() initializes to a default angle
-                pos = chip():getPos() + Vector(0, 300, 0)
+                pos = Vector(-10326, 6121, 1025)
             },
             {
                 type = "ShopScreen",
                 name = "Spawn Office",
-                ang = Angle(0, 0, 90),  -- Adjust angle as needed
-                pos = chip():getPos() + Vector(0, 100, 70)
-            },
-            {
-                type = "SpawnPlatform",
-                name = "Tub Thrifters",
-                ang = Angle(),  -- Assuming Angle() initializes to a default angle
-                pos = chip():getPos() + Vector(0, -300, 0)
-            },
-            {
-                type = "ShopScreen",
-                name = "Tub Thrifters",
                 ang = Angle(0, 180, 90),  -- Adjust angle as needed
-                pos = chip():getPos() + Vector(0, -100, 70)
-            },
-            {
-                type = "DropPlatform",
-                name = "Junk Shed",
-                ang = Angle(),  -- Default angle
-                pos = chip():getPos() + Vector(200, -100, 0),
-                entitySetup = {
-                    model = "models/sprops/rectangles_superthin/size_4_5/rect_42x42.mdl",
-                    color = Color(255, 0, 255),
-                    skin = 0 ,
-                    solid = false,
-                },
-
+                pos = Vector(-10246, 6149, 1085)
             },
             {
                 type = "DropPlatform",
                 name = "Police Station",
                 ang = Angle(),  -- Default angle
-                pos = chip():getPos() + Vector(-200, -100, 0)
-            }
+                pos = Vector(-7126, 7596, 1025),
+
+            },
+            {
+                type = "SpawnPlatform",
+                name = "Factory",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = Vector(1079, 3740, -6)
+            },
+            {
+                type = "ShopScreen",
+                name = "Factory",
+                ang = Angle(0, 180, 90),  -- Adjust angle as needed
+                pos = Vector(1225, 3783, 50)
+            },
+            {
+                type = "DropPlatform",
+                name = "Construction Site",
+                ang = Angle(),  -- Default angle
+                pos = Vector(9139, 4860, 1017),
+
+            },
+            {
+                type = "SpawnPlatform",
+                name = "Dealership",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = Vector(-7881, -9098, 1017)
+            },
+            {
+                type = "ShopScreen",
+                name = "Dealership",
+                ang = Angle(0, 90, 90),  -- Adjust angle as needed
+                pos = Vector(-8064, -9006, 1071)
+            },
+            {
+                type = "DropPlatform",
+                name = "Junk Shed",
+                ang = Angle(),  -- Default angle
+                pos = Vector(-6251, -8320, -518),
+
+            },
+            {
+                type = "SpawnPlatform",
+                name = "Hospital",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = Vector(5678, 5972, 1025)
+            },
+            {
+                type = "ShopScreen",
+                name = "Hospital",
+                ang = Angle(0, -90, 90),  -- Adjust angle as needed
+                pos = Vector(5758, 6056, 1087)
+            },
+            {
+                type = "DropPlatform",
+                name = "Big House",
+                ang = Angle(),  -- Default angle
+                pos = Vector(6334, 9848, 1529),
+
+            },
+            {
+                type = "SpawnPlatform",
+                name = "Hardware Store",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = Vector(-876, -12623, 1025)
+            },
+            {
+                type = "ShopScreen",
+                name = "Hardware Store",
+                ang = Angle(0, -90, 90),  -- Adjust angle as needed
+                pos = Vector(-792, -12392, 1080)
+            },
+            {
+                type = "DropPlatform",
+                name = "Farm",
+                ang = Angle(),  -- Default angle
+                pos = Vector(-7918, -271, -518),
+
+            },
+            {
+                type = "SpawnPlatform",
+                name = "Farm",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = Vector(-8277, 1900, -517)
+            },
+            {
+                type = "ShopScreen",
+                name = "Farm",
+                ang = Angle(0, 180, 90),  -- Adjust angle as needed
+                pos = Vector(-8144, 1773, -467)
+            },
+            {
+                type = "DropPlatform",
+                name = "OFC",
+                ang = Angle(),  -- Default angle
+                pos = Vector(-8639, -14566, 1017),
+
+            },
+                        {
+                type = "SpawnPlatform",
+                name = "County Post",
+                ang = Angle(),  -- Assuming Angle() initializes to a default angle
+                pos = Vector(-6083, -11845, -518)
+            },
+            {
+                type = "ShopScreen",
+                name = "County Post",
+                ang = Angle(0, 0, 90),  -- Adjust angle as needed
+                pos = Vector(-5959, -11649, -453)
+            },
         }
     }
     
