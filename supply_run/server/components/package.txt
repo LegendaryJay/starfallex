@@ -7,6 +7,7 @@ local Package = class("Package")
 function Package:initialize(entity, ownerId, product, controller)
     self.type = "Package"
     self.ownerId = ownerId
+    self.id = entity:entIndex()
     self.product = product
     self.entity = entity
     self.controller = controller
@@ -28,7 +29,7 @@ function Package.create(ownerId, pos, ang, model, controller, product)
 end
 
 function Package:initializeUpdateHook()
-    hook.add("think", "update_package_" .. self.entity:entIndex(), function()
+    hook.add("think", "update_package_" .. self.id, function()
         self:updateDistance()
     end)
 end
@@ -75,7 +76,7 @@ function Package:remove()
         self.entity:remove()
     end
     self.controller:removeRecord("Package", nil, self)
-    hook.remove("think", "update_package_" .. self.entity:entIndex())
+    hook.remove("think", "update_package_" .. self.id)
 end
 
 return Package

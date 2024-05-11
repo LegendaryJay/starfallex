@@ -12,23 +12,29 @@ local eyepod = nil
 
 
 for _, ent in pairs(structure) do
-    print(ent)
     if ent:getClass() == "prop_vehicle_prisoner_pod" then
+        print("Chair Found")
         chair = ent
     elseif ent:getClass() == "gmod_wire_cameracontroller" then
+        print("Camera Found")    
         camera = ent
     elseif ent:getClass() == "gmod_wire_eyepod" then
+        print("Eyepod Found")        
         eyepod = ent
     end
 end
 
+local center = chip():getPos()
+print(center)
 if chair == nil then
-    chair = prop.createSent(chip():getPos() + Vector(0,0,50), Angle(), "Seat_Airboat", false)
+    print("Creating Chair")
+    chair = prop.createSeat(center + Vector(0,0,50), Angle(), "models/props_combine/breenchair.mdl", false)
     constraint.nocollide(chip(), chair)
 end
 
 if camera == nil then
-    camera = prop.createSent(chip():getPos() + Vector(0,10,0), Angle(),  "gmod_wire_cameracontroller", 1, {
+    print("Creating Camera")    
+    camera = prop.createSent(center + Vector(0,10,5), Angle(),  "gmod_wire_cameracontroller", true, {
         AllowZoom = false,
         AutoMove = false,
         AutoUnclip = false,
@@ -40,12 +46,16 @@ if camera == nil then
         Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
         ParentLocal = false,
     })
+    
     constraint.nocollide(camera, chip())
+    camera:setPos(center + Vector(0,10,0))
+    camera:setAngles(Angle())    
 end
 
 
 if eyepod == nil then
-    eyepod = prop.createSent(chip():getPos() + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
+    print("Creating Eyepod")    
+    eyepod = prop.createSent(center + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
         ClampX = 0,
         ClampXMax = 0,
         ClampXMin = 0,
@@ -57,12 +67,19 @@ if eyepod == nil then
         ShowRateOfChange = 1,
     })
     constraint.nocollide(eyepod, chip())
+    eyepod:setPos(center + Vector(10,0,0))
+    eyepod:setAngles(Angle())
 end
 
 
 local eyelink = wire.getWirelink(eyepod)
 local camLink = wire.getWirelink(camera)
 
+hook.add("think", "thing", function() 
+    if chair:getDriver() then
+        chair:setPos(camera:getPos())
+    end
+end)
     
 --[[
 eyepod
@@ -105,6 +122,7 @@ out
 7    =    Trace
 ]]
 
+--[[
 
 
 local offsetVector = chair:getUp()
@@ -170,3 +188,4 @@ hook.add("think", "thing", function()
     end
 
 end)
+]]
