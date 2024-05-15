@@ -1,0 +1,39 @@
+--@name UFO Interior
+--@author Lil'Tugboat
+--@model models/props_combine/breendesk.mdl
+--@client
+
+center = chip():getPos() + Vector(0,0,1000)
+
+floorScale = 50
+--[[
+water = hologram.create(chip():getPos() + Vector(0,0,0) * floorScale, Angle(0,0,90), "models/sprops/geometry/fdisc_144.mdl", Vector(1,3,1) * floorScale)
+water:setMaterial("models/shadertest/predator")
+]]
+
+floor = hologram.create(center, Angle(0,0,90), "models/sprops/geometry/fdisc_144.mdl", Vector(1,0,1) * floorScale)
+floor:setMaterial("models/props_combine/health_charger_glass")
+
+wallScale = floorScale * 1
+wall = hologram.create(floor:getPos() + Vector(0,0, 0) * wallScale, Angle(-90,0,0), "models/props_canal/canal_cap001.mdl", Vector(0.2,1,1) * wallScale)
+
+wall2 = hologram.create(wall:getPos() + Vector(0,0,14) * wallScale, Angle(90,0,0), "models/props_canal/canal_cap001.mdl", Vector(0.2,1,1) * wallScale)
+
+local panelCount = 23
+for i = 1, panelCount do
+    ang =  360 * (i + 0.5)/(panelCount * 1)
+    panelDist = 75 
+    wallPanel = hologram.create(floor:getPos() + Vector(math.sin(math.rad(ang)) * panelDist,math.cos(math.rad(ang)) * panelDist, 7) * wallScale, Angle(90,0,ang + 90), "models/sprops/rectangles/size_84/rect_84x192x3.mdl", Vector(0.5,1,8) * wallScale * 0.123)
+end
+for i = 1, panelCount do
+    ang =  360 * (i )/(panelCount * 1)
+    panelDist = 75 
+    wallPanel = hologram.create(floor:getPos() + Vector(math.sin(math.rad(ang)) * panelDist,math.cos(math.rad(ang)) * panelDist, 7) * wallScale, Angle(90,0,ang + 90), "models/sprops/rectangles/size_84/rect_84x192x3.mdl", Vector(0.5,1,1) * wallScale * 0.123)
+    --wallPanel:setColor(Color(0,0,0,50))
+    wallPanel:setMaterial("models/props_combine/health_charger_glass")
+end
+
+top = hologram.create(wall2:getPos() + Vector(0,0,0) * floorScale, Angle(0,0,0), "models/sprops/misc/domes/size_4/dome_48x144.mdl", Vector(3.3,3.3,0.1) * floorScale)
+
+
+

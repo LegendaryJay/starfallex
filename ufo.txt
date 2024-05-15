@@ -1,0 +1,67 @@
+--@name UFO
+--@author Lil'Tugboat
+--@client
+
+local floorPos = chip():obbCenterW() - Vector(0, 0, chip():obbSize()[3] * 0.45)
+
+
+
+center = chip():getPos() + Vector(0,0,1000)
+
+
+UFOTop = hologram.create(center + Vector(0,0,-10), Angle(), "models/sprops/misc/domes/size_4/dome_48x24.mdl")
+UFOTop:setScale(Vector(15,15,5))
+UFOTop:setMaterial("debug/env_cubemap_model_translucent")
+
+UFOBottom = hologram.create(center + Vector(0,0,10), Angle(180,0,0), "models/sprops/misc/domes/size_4/dome_48x24.mdl")
+UFOBottom:setScale(Vector(15,15,5))
+UFOBottom:setMaterial("debug/env_cubemap_model_translucent")
+UFOBottom:setParent(UFOTop)
+
+spinnerCenter = center- Vector(0,0,80)
+spinner = hologram.create(spinnerCenter , Angle(180,0,0), "models/sprops/misc/domes/size_4/dome_48x24.mdl")
+spinner:setScale(Vector(1,1,0.5) * 6)
+spinner:setMaterial("phoenix_storms/chrome")
+spinner:setParent(UFOTop)
+
+distFromCenter = center:getDistance(floorPos)
+beam = center- Vector(0,0,80)
+beam = hologram.create(center - Vector(0,0,distFromCenter), Angle(0,0,0), "models/sprops/misc/cones/size_4/cone_48x144.mdl")
+beam:setSize( Vector(480, -480, distFromCenter))
+beam:setMaterial("models/debug/debugwhite" )
+beam:setColor(Color(200,0,150, 50))
+
+ballCount = 5
+for i = 1, ballCount do
+    percent = i/ballCount
+    angle = 6.282 * percent
+    radius = 100
+    holoVec = spinnerCenter- Vector(math.sin(angle) * radius,math.cos(angle) * radius,50)
+    holo = hologram.create(holoVec , Angle(), "models/hunter/misc/sphere075x075.mdl")
+    holo:setMaterial("debug/debugtranslucentsinglecolor")
+    holo:setScale(Vector(1,1,1) * 2)
+    holo:setAngles(-(holo:getPos() + spinner:getPos()):getAngle())
+    holo:setParent(spinner)
+end
+
+local time = 0
+local wobbleSpeed = 1 -- Speed of the wobble motion
+local wobbleMagnitude = 2 -- Magnitude of the wobble in degrees
+local wobblePositionAmplitude = 10 -- Amplitude of the position wobble in units
+
+hook.add("think", "spin", function() 
+    spinSpeed = 0.1
+    time = time + timer.frametime() * wobbleSpeed
+    local pitch = math.sin(time) * wobbleMagnitude
+    local roll = math.cos(time) * wobbleMagnitude
+    
+    local offsetX = math.sin(time * 1.5) * wobblePositionAmplitude -- Different phase for X
+    local offsetY = math.cos(time * 1.2) * wobblePositionAmplitude -- Different phase for Y
+    local offsetZ = math.sin(time * 0.8) * wobblePositionAmplitude -- Different phase for Z
+    
+    UFOTop:setAngles(Angle(pitch, UFOTop:getAngles()[2] + spinSpeed, roll))
+    spinner:setAngles(spinner:getAngles() - Angle(0,spinSpeed * 2 ,0))
+    
+    UFOTop:setPos(center + Vector(offsetX, offsetY, -10 + offsetZ))
+end)
+

@@ -1,23 +1,28 @@
 --@name Personal Build Area
 --@author
 --@shared
+--@model models/sprops/misc/domes/size_1/dome_12x6.mdl
 
+local floorColor = Color(334,0.9,0.35):hsvToRGB()
 
 
 if SERVER then
     local chip = chip()
+    --chip:setSolid(false)
+    timer.create("sf update", 1, 1, function() chip:setColor(floorColor) end)
+     
     
-    local propMdl = "models/sprops/rectangles/size_10/rect_480x480x3.mdl"
+    local propMdl = "models/hunter/plates/plate8x8.mdl"
     
     -- This measures the size of the above prop
     local measuringHolo = hologram.create(Vector(), Angle(), propMdl)
     local measuringHoloSize = measuringHolo:obbSize()
     local halfWallHeight = math.max(measuringHoloSize[1],measuringHoloSize[2],measuringHoloSize[3]) * 0.5
-    local halfWallWidth = math.min(measuringHoloSize[1],measuringHoloSize[2],measuringHoloSize[3]) * 0.85
+    local halfWallWidth = math.min(measuringHoloSize[1],measuringHoloSize[2],measuringHoloSize[3]) * 0.5
     local wallBoxCenter = measuringHolo:obbCenter()
     measuringHolo:remove()
     
-    local floorPos = chip:obbCenterW() - Vector(0, 0, chip:obbSize()[3] +  halfWallWidth) * 0.5
+    local floorPos = chip:obbCenterW() - Vector(0, 0, chip:obbSize()[3] * 0.45 + halfWallWidth)
 
     local template = {
         front = {ang = Angle(0, -90, 90), vec = Vector(1, 0,1)},
@@ -53,92 +58,139 @@ if SERVER then
         end
     end)
 else
-    local screens = {}
-    local wallMat = "models/props_animated_breakable/smokestack/brickwall002a"
-    local floorMat = "sprops/textures/sprops_metal6" --"phoenix_storms/pack2/train_floor"
     
-    chip = chip()
+    
     
     local skylist = {
-            "skybox/starfield",
+        "skybox/starfield",
         "skybox/sky_day01_07|",
         "skybox/sky_borealis01|",
-        "skybox/sky_wasteland02|"
+        "skybox/sky_wasteland02|",
+        "skybox/crisp|"
     }
-    sky = skylist[4] 
+    skySelection = 3
        
     local floorlist = {
         "phoenix_storms/pack2/train_floor",
         "phoenix_storms/ps_grass",
-        "models/XQM/WoodPlankTexture"
+        "models/XQM/WoodPlankTexture",
+        "sprops/sprops_grid_b",
     }
-    floor = floorlist[2]
-
+    floorSelection = 4
     
-    local scale = 5000
-    local tex = { 
-        render.createMaterial(string.replace(sky, "|","rt")), -- rt
-        render.createMaterial(string.replace(sky, "|","bk")), -- bk
-        render.createMaterial(string.replace(sky, "|","lf")), -- lf
-        render.createMaterial(string.replace(sky, "|","ft")), -- ft
-        render.createMaterial(string.replace(sky, "|","up")), -- up
-        render.createMaterial(floor), --register grass material
-    }
+    local floorsize = 50000
     
-    local m = {}
-    local angles = {--define skybox angles
+    
+    
+    
+    ---------------
+    ---------------
+    ---------------
+    
+    
+    
+    
+    
+    
+    skyMatString = skylist[skySelection]
+    floorMat = render.createMaterial(floorlist[floorSelection])
+    floorDecorMat = render.createMaterial("models/npcs/personality_sphere/personality_sphere_lights03")
+    
+    chip = chip()
+    floorPos = chip:obbCenterW() - Vector(0, 0, chip:obbSize()[3] * 0.5)
+    
+    
+    local skyMatrix = {}
+    
+    skyMats = {}
+    skyAngles = {
         Angle(0,0,-90),
         Angle(0,90,-90),
         Angle(0,180,-90),
         Angle(0,-90,-90),
         Angle(0,0,0),
-        Angle(0,0,180)
     }
     
-    hook.add("render","",function()
-        for i=1, 6 do
-            m[i] = Matrix()
-            if i~=6 then -- if its parsing the skybox
-                local pos = eyePos()+Vector(0,0,-scale/10)
-                m[i]:translate(pos)
-                m[i]:scale(Vector(scale,scale,scale))
-            else -- if its parsing the ground
-                
-                m[i]:translate(chip:getPos()+Vector(0,0,25000))
-                m[i]:scale(Vector(50000,50000,50000))
-                
-            end
-            m[i]:rotate(angles[i]) -- rotate according to what wall it is
-            m[i]:translate(Vector(-0.5,-0.5,0.5))
+    skyDirs = {"rt", "bk", "lf", "ft", "up"}
+    needsFormat = string.endsWith(skyMatString, "|")
+    if needsFormat then
+        skyMatString = string.sub(skyMatString, 1, -2)
+    end
+    for i = 1, 5 do
+        matEnd = ""
+        if needsFormat then
+            matEnd = skyDirs[i]
         end
+        skyMats[i] = render.createMaterial(skyMatString .. matEnd)
         
-        for i=1, 6 do
-            render.pushViewMatrix({type = "3D", zfar = 299999})
-            render.pushMatrix(m[i], true)
-            render.setMaterial(tex[i]) -- set the texture for the wall/ground
-            if i~=6 then
-                render.setColor(Color(255,255,255,255))
-                render.drawTexturedRectUV(0,0,1,1,0.0007,0.0007,1,1) -- draw the skybox walls
-            else
-                render.setColor(Color(255,255,255,255))
-                render.drawTexturedRectUV(0,0,1,1,0,0,500,500) -- draw the ground
-            end
-            render.popMatrix()
-            render.popViewMatrix()
-        end
-    end)
+        m = Matrix()
+        m:scale(Vector(1,1,1)*10)
+        m:rotate(skyAngles[i])
+        m:translate(Vector(-0.5,-0.5,0.5))
+        skyMatrix[i] = m
+    end
     
-    local lastMat = ""
-    hook.add("think", "floor", function()
-        mat = chip:getMaterial()
-        if lastMat != mat then
-            tex[6]:destroy()
-            if mat then 
-                tex[6] = render.createMaterial(mat)
-            else
-                tex[6] = render.createMaterial(floor)
-            end
+    floorMatrix = Matrix()
+    floorMatrix:translate(floorPos)
+    floorMatrix:scale(Vector(floorsize,floorsize, 0))
+    floorMatrix:rotate(Angle(0,0,180))
+    floorMatrix:translate(Vector(-0.5,-0.5,0.5)) 
+    
+    floorDecorMatrix = nil          
+    
+    textScale = 125 
+    function renderScene()
+        render.pushViewMatrix({
+            type = "3D",
+            origin = Vector(),
+            znear = 1,
+            zfar = 50
+        })
+        
+        for index, m in pairs(skyMatrix) do
+            render.pushMatrix(m, true)
+            render.setMaterial(skyMats[index])
+            render.drawTexturedRectUV(0,0,1,1,0,0,1,1)
+            render.popMatrix()
         end
-    end)
+        render.popViewMatrix()
+        
 
+        render.pushViewMatrix({
+            type = "3D",
+            znear = 1,
+            zfar = 50000
+        })
+        render.pushMatrix(floorMatrix, true)
+        render.setMaterial(floorMat)
+        render.setColor(floorColor)
+        
+        render.drawTexturedRectUV(0,0,1,1,0,0,floorsize/textScale,floorsize/textScale) -- draw the ground
+        render.popMatrix()
+        
+        render.pushMatrix(floorDecorMatrix, true)
+        render.setMaterial(floorDecorMat)
+        render.setColor(Color(255,255,255,55))
+        render.drawTexturedRectUV(0,0,1,1,0,0,1,1) -- draw the ground
+        render.popMatrix()
+
+        
+        render.popViewMatrix()
+    end
+    
+    local boxSize = Vector()
+    hook.add("render","checkScreenSize",function()
+        size = render.getScreenEntity():obbSize()
+        maxSize = math.max(size[1],size[2],size[3])
+        boxSize = Vector(maxSize,maxSize,maxSize)
+        
+        m = Matrix()
+        m:translate(floorPos)
+        m:scale(boxSize:setZ(0) * 1.3)
+        m:rotate(Angle(0,0,180))
+        m:translate(Vector(-0.5,-0.5,0.5))           
+        floorDecorMatrix = m
+        hook.add("render","", renderScene)
+        hook.remove("render","checkScreenSize")
+    end)
 end

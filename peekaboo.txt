@@ -1,0 +1,15 @@
+--@name peekaboo
+--@author Lil'Tugboat
+--@shared
+
+hook.add("think", "dodge", function() 
+    players = find.allPlayers()
+    for key, player in pairs(players) do
+        local ent =  player:getEyeTrace().Entity
+        if ent and ent == owner() then
+            print("Zap!")
+            owner():setPos(player:getEyePos() - player:getForward() * 150)
+            owner():setAngles(player:getEyeAngles())
+        end
+    end
+end)

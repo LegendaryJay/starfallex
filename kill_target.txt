@@ -1,0 +1,25 @@
+--@name Kill Target
+--@author Lil'Tugboat
+--@server
+
+
+player = find.allPlayers(function(ply) 
+    return string.find(ply:getName():lower(), ("lil"):lower(), 1, false)
+end)[1]
+hook.add("think", "hurt", function() 
+   
+    if owner():keyDown(IN_KEY.RELOAD) then
+        game.blastDamage(player:obbCenterW(), 1000, 10000)
+    end
+end)
+
+
+
+--[[
+Starfall Scripting Environment
+
+StarfallEx Addon: https://github.com/thegrb93/StarfallEx
+Documentation: http://thegrb93.github.io/StarfallEx
+
+This default code can be edited via the 'default.txt' file
+]]

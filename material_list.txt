@@ -1,0 +1,76 @@
+--@name Material List
+--@author Lil'Tugboat
+--@shared
+
+
+
+if CLIENT then
+    
+    local me = player()
+    local controls = {}
+    local cooldown = 0.1  -- Cooldown time in seconds
+    local watchedKeys = {
+        [IN_KEY.ATTACK] = true,
+        [IN_KEY.ATTACK2] = true
+    }
+    
+    function getLookEnt()
+        return player():getEyeTrace().Entity
+    end
+    
+    function copyButton()
+        
+    end
+
+    local materialList = {}
+    -- Add hooks for key presses.
+    hook.add("KeyPress", "usercontrols", function(ply, key) 
+        if me != ply or not watchedKeys[key] then return end
+        if me:getActiveWeapon() and me:getActiveWeapon():getClass() == "remotecontroller" then
+            if controls[key] then return end
+            controls[key] = timer.curtime()
+        
+            if key == IN_KEY.ATTACK2  then
+                ent = getLookEnt() 
+                if ent then 
+                    materialList = ent:getMaterials()
+                    materialList[#materialList + 1] = ent:getMaterial() != "" and ent:getMaterial() or nil
+                    holo
+                end
+            elseif key == IN_KEY.ATTACK then
+                print("paste")
+            end
+        end
+    end)
+
+    -- Add hooks for key releases.
+    hook.add("KeyRelease", "usercontrols", function(ply, key) 
+        if me == ply and controls[key] and controls[key] > 0 then
+            local pressDuration = timer.curtime() - controls[key] 
+            
+            controls[key] = -timer.curtime()
+        end
+    end)
+
+
+    hook.add("think", "keyProcessing", function() 
+        for key, timePressed in pairs(controls) do
+            if timePressed and (timer.curtime() - math.abs(timePressed)) >= cooldown then
+                if timePressed < 0 then
+                    controls[key] = nil
+                else
+                
+                end
+            end
+        end
+    end)
+end
+
+
+-- with gun rightClick either copies or selects material
+-- left click with gun either does nothing or pastes
+
+
+
+-- hook into the gun
+-- get submaterial list

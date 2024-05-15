@@ -1,0 +1,618 @@
+--@name MeshLoader Custom Materials 1.7
+--@author Original by Cheezus Mod by [C17] Red Fox
+--@shared
+
+local debugPrints = true -- Shows info about tri count and loading progress
+
+if CLIENT then
+    --[[
+    Original by Cheezus modded by [C17] Red Fox based on my own chip
+    Still a W.I.P conversion
+    Tip:
+
+FOLLOW THE DAMN INSTRUCTIONS
+
+A better understanding of the variables is just below
+
+To use fully this chip you will need some modelling, texturing, source engine material and image editing knowledge, yes it is a pain
+
+If you want to know about material parameters go to Valve's wiki:
+https://developer.valvesoftware.com/wiki/Category:List_of_Shader_Parameters
+
+Specular doesnt work how you might think here(maybe?), and if you are using it and theres no reflections or its a little wierd,
+its possible the map has no cubemaps or has issues with it
+
+Sometimes when spawning, the cubemap might not load correctly, just give the chip a little nudge / change positions
+
+Specular works as the following so mod your texture accordingly:
+
+The whiter it is, the shinier it will be, the same way that the blacker, more rought it will be, which is the inverse of PBR, using metallic maps, is
+as far as I am aware, impossible, you'll have to mix and play around with specular to have the desired effect. Or play with roughness and metallic.
+But remember to invert roughness first.
+
+Furthermore, if you want to use bumppmaps with specular mask, you'll have to use it as an alpha channel of the basetexture then add a special flag for it
+Dont try to use a bumpmap with alpha channel, its not properly supported in gmod, if you try, your model will have its lighting fullbright
+
+If you dont want a specular mask, basetexture and bumpmaps work together as they should
+
+Otherwise perhaps try exporting parts that should be more shiny or not, separately, and adjust how much the cubemap affects them when loading the mesh
+
+Now that this has been said, go scroll down
+
+
+    mdl,----------------------------The actual mesh obj URL ~21.845 tris max per object (it multiplies by 3, which is about 65536 verts max), also MUST be triangulated, 
+    beware of rendertarget limit as well, around ~20 by default, that means about ~20 meshes per time if using single texture, should be enough as long as you stay at the tris limit
+    you can load multiple meshes per .obj, that way it may pass the tris limit, but individual meshes are limited still
+    
+    texture,------------------------The custom texture URL or in-game texture to mod
+    UseModTexture, -----------------Use Modified texture or not example: models/debug/debugwhite but with custom shinyness and stuff else just loads an in-game material with no mods
+    Material,-----------------------If previous false this will be used, normal material such as "models/shiny"
+    ColorAndAlpha,------------------Self explanatory, RGB Alpha, can be used for custom texture as well
+    UseEnvMapSpecularReflections,---Enables specular reflections, if true or if false will disable all kinds of reflections
+    EnvMapShinyness,----------------How much the specular affets reflections, also works as a tint
+    EnvMapLink,---------------------The mask texture itself, uses a URL
+    BumpMapLink,--------------------The bumpmap URL
+    BaseMapAlphaPhongMask,----------Has to do with using the base texture as a PhongMask
+    BaseMapAlphaEnvMask,------------Same as above but for the Specular, these 2 need a alpha channel on the texture, if you dont use a mask these are useful just for Phong and Rim reflections
+    UsePhong,-----------------------1 or 0, for the following look at valve wiki, they are mostly useful for when you dont use a mask
+    InvertPhongMask,----------------Try playing with this
+    PhongTint,----------------------exactly as name says
+    PhongBoost,---------------------Some value, see valve wiki
+    PhongExp,-----------------------Same as above
+    UseRimLight,--------------------1 or 0, works only with BaseMapAlphaPhongMask
+    RimLightBoost,------------------A value, see valve wiki
+    RimLightExp,--------------------Same as above
+    EnvMapContrast,-----------------Used with BaseMapAlphaEnvMask
+    EnvMapSaturation,---------------Same as above, try fiddling with these
+    PhongFresnelRange,--------------Try fiddling, works with BaseMapAlphaPhongMask on, only
+    EnableHalfLambert---------------See valve wiki
+    
+    
+        To use any of the following, EnvMapMask, BumpMap, you MUST enable the use of UseEnvMapSpecularReflections
+    ALL of these must be used in some way or other, follow the example and read the notes.
+    
+    NOTE:
+    
+    If you dont want BumpMap / EnvMap textures, just remove the link
+    
+    IT WONT load all kinds of models, see the Mesh note in the function above as to why
+    
+    ALL TEXTURES must be in 1024x1024, its a limitation of the rendertarget of starfall it seens, no way to bypass that
+    if your textures are loading with wrong uvs, thats most likely the cause. Blame them, not me.
+    
+    
+    If you want to use a custom material, one with custom proprierties without loading an external texture, just load up a white texture such as models/debug/debugwhite
+    and set the color manually if not just load a normal gmod texture, but beware that just loading a material will override
+    all custom proprierties except color and alpha.
+    
+    
+    If you use multiple meshes for some reason, then you'll have to use multiple meshload()
+        
+    This is a powerful chip, one that not many will be able to use fully, it is meant to be a better alternative
+    to Prop2Mesh, since that has limitations on textures and other things, such as only being able to
+    use local files, which in turn ramps up AdvDupe2 file size, which in turn makes it load much
+    slower than needed
+    
+    If the mesh doesnt load, try reloading again
+    
+    
+    WARNING:
+    
+    Each custom texture uses a RenderTarget, which means the more custom textures you use, the more RTs it will use, which in turn
+    will reach the RT limit sooner
+    
+    Try to compact your model / textures in a manner that it will the less materials and meshes as possible
+    
+    Of course thats not always possible, in the end you could raise your own max rendertargets. But that doesnt mean other players will.
+    Which in turn will make it so that they dont see the textures or model and then error for them or you
+    
+    ]]--
+    local globalScale = Vector(39.37) -- Scale all meshes added by this amount, or add a scale vector to individual meshes
+    local offsetPos = Vector(0, 0, 0) -- Offsets are relative to chip/base
+    local offsetAngle = Angle(0, 0, 90)
+
+    -- scale parameters can be added optionally for individual meshes, can leave them out if they aren't used
+    local meshes = {
+        {
+            mdl = "https://dl.dropbox.com/s/aua7cgl5f5lbbge/fuegorcwheelleft.obj?dl=0",
+            texture = "https://dl.dropbox.com/s/l6ppycthqnti2c1/fuegorcwheel.png?dl=0",
+            Material = "models/shiny",
+            UseModTexture = true, --if true loads a custom texture or modifies an in-game texture else just loads a material from the game without modifying
+            CubeMapTexture = "models/shiny",
+            ColorAndAlpha = Color(255, 255, 255, 255),
+            UseEnvMapSpecularReflections = true, --loading an in-game material (not texture) overrides this
+            EnvMapShinyness = Vector(0.1, 0.1, 0.1),
+            EnvMapLink = "", --leave blank if theres nothing to use, same applies below
+            BumpMapLink = "",
+            UseIngameBumpMapp = false,
+            BumpMapTexture = "wtp/chrome_1", --ingame bumptexture
+            TextureScale = 1, --this also sets the bumpmap scale, beware
+            BaseMapAlphaPhongMask = 0,
+            BaseMapAlphaEnvMask = 0,
+            UsePhong = 1,
+            InvertPhongMask = 0,
+            PhongTint = Vector(1,1,1),
+            PhongBoost = 1, --only works with normalmap
+            PhongExp = 36,
+            UseRimLight = 1,
+            RimLightBoost = 0.05, --only works with normalmap
+            RimLightExp = 18,
+            EnvMapContrast = 1,
+            EnvMapSaturation = 1,
+            PhongFresnelRange = Vector(0, 0.25, 1),
+            EnableHalfLambert = false,
+            Flags = {2048},   --be careful of the flags, the order matters as well as the type
+            LowPolyTexture = 0,     -- for PS1 like texture filtering, low poly style
+        },
+
+                
+
+    }
+
+    -- For colorful printing
+    local W, R, G = Color(255, 255, 255), Color(255, 0, 0), Color(0, 255, 0)
+
+    local base = chip()
+
+    net.start("requestBase")
+    net.send()
+
+    net.receive("sendBase", function()
+        local ent = net.readEntity()
+
+        base = isValid(ent) and ent or chip()
+    end)
+
+    local alreadyDownloadedMats = {}
+
+    local buildThread = coroutine.wrap(function()
+        for k, v in ipairs(meshes) do
+            --local holo = hologram.create(base:localToWorld(offsetPos), base:localToWorldAngles(offsetAngle), "models/Combine_Helicopter/helicopter_bomb01.mdl")
+            --holo:setParent(base)
+
+            v.holo = holo
+            
+        if v.UseModTexture then
+            if not alreadyDownloadedMats[v.texture] then
+                local mat = material.create("VertexLitGeneric")
+for _, flags in ipairs(v.Flags) do
+    mat:setInt("$flags", flags)
+end
+   if v.EnableHalfLambert then
+        mat:setInt("$flags", 134217728)
+end    
+
+local cubemapUpdateInterval = 2 -- Adjust the interval as needed
+
+if v.UseEnvMapSpecularReflections then
+    local function setCubeMap()
+        --print("setCubeMap called")
+        local currentPosition = chip():getPos()
+
+        if currentPosition ~= previousPosition or isInitialSpawn then
+            local Nmat = material.load(v.CubeMapTexture)
+            local newEnvMap = Nmat:getTexture("$envmap")
+
+            for _, v in ipairs(meshes) do
+                if v.mat then
+                    v.mat:setTexture("$envmap", newEnvMap)
+                end
+            end
+
+            previousPosition = currentPosition
+            isInitialSpawn = false
+        end
+    end
+
+    -- Call setCubeMap with a small delay when the script initializes
+    timer.simple(1, setCubeMap)
+
+    local function updateCubemap()
+        setCubeMap()
+        timer.simple(cubemapUpdateInterval, updateCubemap)
+    end
+
+    timer.simple(cubemapUpdateInterval, updateCubemap)
+end
+            
+    mat:setInt("$basealphaenvmapmask", v.BaseMapAlphaEnvMask)    
+    mat:setFloat("$envmapcontrast", v.EnvMapContrast)
+    mat:setFloat("$envmapsaturation", v.EnvMapSaturation)    
+    mat:setVector("$envmaptint", v.EnvMapShinyness) --how shiny
+    
+    mat:setInt("$phong", v.UsePhong)
+    mat:setInt("$basemapalphaphongmask", v.BaseMapAlphaPhongMask) 
+    mat:setInt("$invertphongmask", v.InvertPhongMask)   
+    
+    mat:setVector("$phongtint",v. PhongTint)
+    mat:setFloat("$phongboost", v.PhongBoost)
+    mat:setFloat("$phongexponent", v.PhongExp)
+    mat:setVector("$phongfresnelranges", v.PhongFresnelRange) --doesnt do anything?
+    
+    mat:setInt("$rimlight", v.UseRimLight)
+    mat:setFloat("$rimlightexponent", v.RimLightExp)
+    mat:setFloat("$rimlightboost", v.RimLightBoost)
+
+
+                --EnvMask
+                if v.EnvMapLink:sub(1, 4) == "http" then
+                    if hasPermission("material.urlcreate", v.EnvMapLink) then
+                        mat:setTextureURL("$envmapmask", v.EnvMapLink, function(_, _, width, height, layout)
+                            if not width or not height then
+                                mat:setUndefined("$envmapmask")
+                                print(true, W, "Failed to create EnvMap texture for mesh ", G, k, W, ": ", R, "invalid texture URL")
+
+                                return
+                            end
+
+                            local xScale = 1024 / width
+                            local yScale = 1024 / height
+
+                            layout(0, 0, width * xScale, height * yScale)
+                            alreadyDownloadedMats[v.texture] = k
+                        end)
+                    else
+                        mat:setUndefined("$envmapmask")
+                        print(true, W, "Failed to create EnvMap Texture for mesh ", G, k, W, ": ", R, "missing permission material.urlcreate OR url not whitelisted")
+                    end
+                else
+                    mat:setUndefined("$envmapmask")
+                end
+
+                --BumpMap
+                if v.BumpMapLink:sub(1, 4) == "http" then
+                    if hasPermission("material.urlcreate", v.BumpMapLink) then
+                        mat:setTextureURL("$bumpmap", v.BumpMapLink, function(_, _, width, height, layout)
+                            if not width or not height then
+                                mat:setUndefined("$bumpmap")
+                                print(true, W, "Failed to create BumpMap Texture for mesh ", G, k, W, ": ", R, "invalid texture URL")
+
+                                return
+                            end
+
+                            local xScale = 1024 / width
+                            local yScale = 1024 / height
+
+                            layout(0, 0, width * xScale, height * yScale)
+                            alreadyDownloadedMats[v.texture] = k
+                        end)
+                    else
+                        mat:setUndefined("$bumpmap")
+                        print(true, W, "Failed to create BumpMap Texture for mesh ", G, k, W, ": ", R, "missing permission material.urlcreate OR url not whitelisted")
+                    end
+            elseif v.UseIngameBumpMapp then            
+                    
+            local Bump = material.load(v.BumpMapTexture)
+            mat:setTexture("$bumpmap", Bump:getTexture("$bumpmap"))
+
+
+
+
+                else
+                    mat:setUndefined("$bumpmap")
+                end
+
+                --Texture Itself
+                if v.texture:sub(1, 4) == "http" then
+                    if hasPermission("material.urlcreate", v.texture) then
+                        mat:setTextureURL("$basetexture", v.texture, function(_, _, width, height, layout)
+                            if not width or not height then
+                                mat:setTexture("$basetexture", "hunter/myplastic")
+                                print(true, W, "Failed to create texture for mesh ", G, k, W, ": ", R, "invalid texture URL")
+
+                                return
+                            end
+
+                            local xScale = 1024 / width
+                            local yScale = 1024 / height
+
+                            layout(0, 0, width * xScale, height * yScale)
+                            alreadyDownloadedMats[v.texture] = k
+                        end)
+                    else
+                        mat:setTexture("$basetexture", "hunter/myplastic")
+                        print(true, W, "Failed to create texture for mesh ", G, k, W, ": ", R, "missing permission material.urlcreate OR url not whitelisted")
+                    end
+                    
+               
+                else
+                    
+                    local materialLoadToTexture = material.load(v.texture)
+                    local baseTexture = materialLoadToTexture:getTexture("$basetexture")            
+                    mat:setTexture("$basetexture", baseTexture)  
+                end
+                
+
+     
+               -- mat:recompute()
+            local textureMatrix = Matrix()
+            textureMatrix:setScale(Vector(v.TextureScale, v.TextureScale, 1))  -- Adjust the scaling as needed
+
+-- Set the matrix for bump mapping
+            mat:setMatrix("$basetexturetransform", textureMatrix)   
+                
+                v.mat = mat
+            else
+                v.mat = meshes[alreadyDownloadedMats[v.texture]].mat
+                print(nil, W, "Reused material for mesh ", G, k)
+            end
+    else
+             v.mat = material.load(v.Material)
+        end
+
+            local success = false
+            local triangles = mesh.trianglesLeft()
+            
+local meshTable = mesh.createFromObj(v.meshData, true)
+v.holoMeshes = {} 
+local meshNames = {}
+
+-- Extract mesh names from the table
+for name, _ in pairs(meshTable) do
+    table.insert(meshNames, name)
+end
+
+-- Iterate through the list of mesh names
+for i = 1, #meshNames do
+    local meshName = meshNames[i]
+
+    try(
+        function()
+            
+            local holomesh = meshTable[meshName]
+            table.insert(v.holoMeshes, holomesh)
+            -- Set the final mesh for each mesh name
+            v.finalMesh = meshTable[meshName]
+            success = true
+
+            -- Render or handle the mesh here
+            -- Example: renderMesh(v.finalMesh)
+
+            -- You may want to render the mesh or do something else with it here
+           -- print("a".."Rendering Mesh Name:", meshName)
+        end,
+        function(err)
+            print(true, W, "Failed to build mesh ", G, meshName, W, ": ", R, err.message)
+        end
+    )
+end
+
+
+
+            if success then
+                print(nil, W, "Built mesh " .. k, W, ": ", G, triangles - mesh.trianglesLeft(), W, " tris")
+            end
+        end
+
+        return true
+    end)
+
+    local triangles = mesh.trianglesLeft()
+
+    local function doneBuilding()
+        local triCount = triangles - mesh.trianglesLeft()
+
+        setName("Mesh Loader - " .. triCount .. " tris")
+
+        print(false, W, "Finished, using ", G, triCount, W, " tris")
+
+        for _, v in ipairs(meshes) do
+            if v.holoMeshes and #v.holoMeshes > 0 then
+                for i, holomesh in ipairs(v.holoMeshes) do
+                    local holo = hologram.create(base:localToWorld(offsetPos), base:localToWorldAngles(offsetAngle), "models/Combine_Helicopter/helicopter_bomb01.mdl")
+                    holo:setParent(base)
+    
+                    holo:setFilterMag(v.LowPolyTexture)
+                    holo:setFilterMin(v.LowPolyTexture)
+                    holo:setMesh(holomesh)
+                    holo:setMeshMaterial(v.mat)
+                    holo:setRenderBounds(Vector(-200), Vector(200))
+                    holo:setScale((v.scale or Vector(1)) * globalScale)
+                    holo:setColor(v.ColorAndAlpha or Color(255))
+                end
+            end
+        end
+    end
+
+    local function buildMeshes()
+        setName("Mesh Loader - Building meshes...")
+
+        hook.add("think", "build", function()
+            while chip():getQuotaAverage() < chip():getQuotaMax() / 4 do
+                if buildThread() then
+                    doneBuilding()
+
+                    hook.remove("think", "build")
+
+                    return
+                end
+            end
+        end)
+    end
+
+    local meshDataCache
+    local function sendMeshesToServer()
+        if not meshDataCache then
+            local dataTable = {}
+            local alreadyBuilt = {} -- Don't send duplicate meshes
+            for k, v in ipairs(meshes) do
+                local crc = crc(v.meshData)
+
+                if alreadyBuilt[crc] then
+                    table.insert(dataTable, alreadyBuilt[crc])
+                else
+                    table.insert(dataTable, v.meshData)
+                    alreadyBuilt[crc] = k
+                end
+            end
+
+            meshDataCache = bit.compress(table.concat(dataTable, "::"))
+        end
+
+        net.start("meshToServer")
+        net.writeStream(meshDataCache, false)
+        net.send()
+    end
+
+    -- Download meshes on your own client, send the data to the server, and then to other clients
+    -- Lowest chance of permissions issues
+    local failed
+    local alreadyDownloaded = {}
+----
+    if player() == owner() then
+        local download = coroutine.create(function()
+            for k, v in ipairs(meshes) do
+                if not alreadyDownloaded[v.mdl] then
+                    http.get(v.mdl, function(data)
+                        if data[1] == "<" or data[1] == "{" then
+                            failed = true
+
+                            return
+                        end
+
+                        v.meshData = data
+                        alreadyDownloaded[v.mdl] = k
+
+                        print(nil, W, "Downloaded mesh data for mesh ", G, k, W, ", size: ", G, math.round(#data / 1048576, 3) .. "mb")
+                    end, function(err)
+                        print(true, W, "HTTP error - ", R, err)
+
+                        failed = true
+                    end)
+                else
+                    v.meshData = meshes[alreadyDownloaded[v.mdl]].meshData
+                    print(nil, W, "Reused mesh data for mesh ", G, k)
+                end
+
+                coroutine.yield()
+            end
+        end)
+
+        timer.create("downloadMeshes", 0.1, 0, function()
+            if coroutine.status(download) ~= "dead" then
+                if http.canRequest() then
+                    coroutine.resume(download)
+                end
+            elseif failed then
+                timer.remove("downloadMeshes")
+
+                print(true, W, "Failed to get mesh - ", R, "URL did not return OBJ format")
+            else
+                local loaded = true
+                
+                for _, v in ipairs(meshes) do
+                    if not v.meshData then loaded = false end
+                end
+                
+                if loaded then
+                    buildMeshes()
+    
+                    timer.remove("downloadMeshes")
+                    if #find.allPlayers() == 1 then return end
+    
+                    sendMeshesToServer()
+                end
+            end
+        end)
+
+        net.receive("retryMeshToServer", function()
+            timer.simple(1, function()
+                sendMeshesToServer()
+            end)
+        end)
+    else
+        net.receive("meshToClients", function()
+            if not net.isStreaming() then
+                setName("Mesh Loader - Downloading mesh data...")
+                
+                net.readStream(function(data)
+                    if not data then return end
+
+                    local meshDataTable = string.split(bit.decompress(data), "::")
+
+                    for k, meshData in ipairs(meshDataTable) do
+                        if #meshData == 1 then
+                            meshes[k].meshData = meshDataTable[tonumber(meshData)]
+                        else
+                            meshes[k].meshData = meshData
+                        end
+                    end
+
+                    buildMeshes()
+                end)
+            else
+                print(nil, W, "Already receiving stream, requesting again in 1 second...")
+                net.start("retryMeshToClient")
+                net.send()
+            end
+        end)
+    end
+else
+    wire.adjustPorts({
+        Base = "entity"
+    })
+
+    local base = wire.ports.Base
+
+    net.receive("requestBase", function(_, ply)
+        if not isValid(base) then return end
+
+        net.start("sendBase")
+        net.writeEntity(base)
+        net.send(ply)
+    end)
+
+    local meshDataCache
+
+    net.receive("meshToServer", function()
+        if not net.isStreaming() then
+            net.readStream(function(data)
+                if not data or data == "" then return end
+
+                local clients = {}
+                for _, ply in ipairs(find.allPlayers()) do
+                    if ply ~= owner() then
+                        table.insert(clients, ply)
+                    end
+                end
+
+                meshDataCache = data
+
+                print(nil, Color(255, 255, 255), "Server received mesh data, sending to clients...")
+
+                net.start("meshToClients")
+                net.writeStream(data, false)
+                net.send(clients)
+                
+                net.start("uploadFinished")
+                net.send(owner())
+            end)
+        else
+            print(nil, Color(255, 255, 255), "Already receiving stream, requesting again in 1 second...")
+            net.start("retryMeshToServer")
+            net.send(owner())
+        end
+    end)
+
+    net.receive("retryMeshToClient", function(_, ply)
+        net.start("meshToClients")
+        net.writeStream(meshDataCache, false)
+        net.send(ply)
+    end)
+end
+
+local oldPrint = print
+local col = SERVER and Color(3, 169, 244) or Color(222, 169, 9)
+local prefix = SERVER and "[Server] " or "[Client] "
+function print(warn, ...)
+    if (debugPrints and not warn) or warn then
+        oldPrint(col, prefix, ...)
+    end
+end
+
+-- Why SF doesn't do this on its own I have no idea
+hook.add("removed", "stopStreams", function()
+    if net.isStreaming() then
+        net.cancelStream()
+    end
+end)

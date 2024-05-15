@@ -1,0 +1,12 @@
+--@name Thorns
+--@author Lil'Tugboat
+--@server
+
+
+local dmg = 0
+hook.add("EntityTakeDamage", "hurt", function(target, attacker, inflictor, amount, type, position, force)
+    if inflictor == chip() then return end
+    if target == owner() then
+        game.blastDamage(attacker:obbCenterW(), 1, amount)
+    end
+end)

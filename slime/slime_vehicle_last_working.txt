@@ -2,7 +2,7 @@
 --@author Lil'Tugboat
 --@include libs/criticalpd.txt
 --@include libs/holo_manager.txt
---@include slime/arm_manager_class_beta.txt
+--@include slime/arm_manager_class.txt
 --@include slime/bin_manager_class.txt
 
 --@server

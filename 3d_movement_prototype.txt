@@ -2,190 +2,118 @@
 --@author Lil'Tugboat
 --@server
 
-prop.setPropClean(false)
+prop.setPropClean(true)
 prop.setPropUndo(true)
 
 local structure = chip():getAllConstrained()
 local chair = nil
 local camera = nil
-local eyepod = nil
 
-
-for _, ent in pairs(structure) do
-    if ent:getClass() == "prop_vehicle_prisoner_pod" then
-        print("Chair Found")
-        chair = ent
-    elseif ent:getClass() == "gmod_wire_cameracontroller" then
-        print("Camera Found")    
-        camera = ent
-    elseif ent:getClass() == "gmod_wire_eyepod" then
-        print("Eyepod Found")        
-        eyepod = ent
-    end
-end
 
 local center = chip():getPos()
-print(center)
-if chair == nil then
-    print("Creating Chair")
-    chair = prop.createSeat(center + Vector(0,0,50), Angle(), "models/props_combine/breenchair.mdl", false)
-    constraint.nocollide(chip(), chair)
-end
+local chair = prop.createSeat(center + Vector(0,0,50), Angle(), "models/sprops/cuboids/height12/size_1/cube_12x48x12.mdl", false)
+chair:setPos(center + Vector(0,0,50))
+chair:setAngles(Angle())
 
-if camera == nil then
-    print("Creating Camera")    
-    camera = prop.createSent(center + Vector(0,10,5), Angle(),  "gmod_wire_cameracontroller", true, {
-        AllowZoom = false,
-        AutoMove = false,
-        AutoUnclip = false,
-        AutoUnclip_IgnoreWater = false,
-        DrawParent = true,
-        DrawPlayer = true,
-        FreeMove = false,
-        LocalMove = false,
-        Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
-        ParentLocal = false,
-    })
-    
-    constraint.nocollide(camera, chip())
-    camera:setPos(center + Vector(0,10,0))
-    camera:setAngles(Angle())    
-end
+local camera = prop.createSent(center + Vector(0,10,5), Angle(),  "gmod_wire_cameracontroller", true, {
+    AllowZoom = false,
+    AutoMove = false,
+    AutoUnclip = false,
+    AutoUnclip_IgnoreWater = false,
+    DrawParent = true,
+    DrawPlayer = true,
+    FreeMove = false,
+    LocalMove = false,
+    Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
+    ParentLocal = false,
+})
+--camera:setPos(center + Vector(0,10,0))
+--camera:setAngles(Angle())    
 
+constraint.nocollide(chair, chip())
+constraint.nocollide(camera, chip())
 
-if eyepod == nil then
-    print("Creating Eyepod")    
-    eyepod = prop.createSent(center + Vector(10,0,0), Angle(), "gmod_wire_eyepod", true, {
-        ClampX = 0,
-        ClampXMax = 0,
-        ClampXMin = 0,
-        ClampY = 0,
-        ClampYMax = 0,
-        ClampYMin = 0,
-        DefaultToZero = 1,
-        Model = "models/jaanus/wiretool/wiretool_siren.mdl",
-        ShowRateOfChange = 1,
-    })
-    constraint.nocollide(eyepod, chip())
-    eyepod:setPos(center + Vector(10,0,0))
-    eyepod:setAngles(Angle())
-end
-
-
-local eyelink = wire.getWirelink(eyepod)
 local camLink = wire.getWirelink(camera)
-
-hook.add("think", "thing", function() 
-    if chair:getDriver() then
-        chair:setPos(camera:getPos())
-    end
-end)
     
+
 --[[
-eyepod
--- out
-1    =    X
-2    =    wirelink
-3    =    Y
-4    =    XY
-
-
---in
-1    =    Enable
-2    =    SetPitch
-3    =    SetYaw
-4    =    SetViewAngle
-5    =    UnfreezePitch
-6    =    UnfreezeYaw
-
-
 cam
-in
-1    =    Activated
-2    =    Direction
-3    =    Angle
-4    =    Position
-5    =    Distance
-6    =    UnRoll
-7    =    Parent
-8    =    FilterEntities
-9    =    FLIR
-10    =    FOV
-
-out
-1    =    wirelink
-2    =    On
-3    =    HitPos
-4    =    CamPos
-5    =    CamDir
-6    =    CamAng
-7    =    Trace
+    in
+    1    =    Activated
+    2    =    Direction
+    3    =    Angle
+    4    =    Position
+    5    =    Distance
+    6    =    UnRoll
+    7    =    Parent
+    8    =    FilterEntities
+    9    =    FLIR
+    10    =    FOV
+    
+    out
+    1    =    wirelink
+    2    =    On
+    3    =    HitPos
+    4    =    CamPos
+    5    =    CamDir
+    6    =    CamAng
+    7    =    Trace
 ]]
 
---[[
-
-
-local offsetVector = chair:getUp()
-local offsetAngle = 90
-
-camLink.Position = chair:getPos() - chair:getForward() * 25
 camLink.Parent = chair
 
+function control(plus, minus, amp, default)
+    default = default or 0
+    local movement = 0
+    if minus then
+        movement = movement - amp
+    end
+    if plus then
+        movement = movement + amp
+    end
+    if movement == 0 then
+        movement = math.clamp(default, -amp, amp)
+    end
+    return movement
+end    
+
+forwardSpeed = 0
 hook.add("think", "thing", function() 
     local driver = chair:getDriver()
     if driver and driver:isValid() and chair then
-        eyelink.Enable = 1
-        camLink.Activated = 1
         camLink.Parent = chair
-        camLink.Position = chair:getPos() + chair:getForward() * 25
         camLink.Angle = chair:getAngles()
+        camLink.Position = chair:obbCenterW() + camLink.CamDir * 40
+        
+        camLink.Activated = 1
+
 
         chair:setFrozen(false)
         
+        local dampener = -chair:getAngleVelocity() * 0.6
         
-        local roll = 0
-        rollSpeed = 3
-        if chair:getDriver():keyDown(IN_KEY.MOVERIGHT) then
-            roll = roll - rollSpeed
-        end
-        if chair:getDriver():keyDown(IN_KEY.MOVELEFT) then
-            roll = roll + rollSpeed
-        end
+        local rollAmp = 5
+        local pitch = control(driver:keyDown(IN_KEY.FORWARD), driver:keyDown(IN_KEY.BACK), rollAmp, dampener[2])
+        local roll = control(driver:keyDown(IN_KEY.MOVERIGHT), driver:keyDown(IN_KEY.MOVELEFT), rollAmp, dampener[1])
+        local yaw = dampener[3]
         
-        local camAng = chair:getAngles()
+
+        local localRot = Vector(roll, pitch, yaw)
+        rotation = localToWorld(localRot, Angle(), Vector(), camLink.CamAng)
         
-        camAng = camAng:rotateAroundAxis(chair:getUp(), -eyelink.X)
-        camAng = camAng:rotateAroundAxis(camAng:getForward(), eyelink.Y)
-        camAng = camAng:rotateAroundAxis(camAng:getRight(), roll)
-        local localRot = Vector(eyelink.Y, -eyelink.X, roll)
-        rotation = localToWorld(localRot, Angle(), Vector(), chair:getAngles())
+        chair:applyTorque(rotation * 20 )
         
-        --chair:setAngles(camAng)
-        chair:applyTorque(rotation - chair:getAngleVelocity() * 0.1)
-        
-        local speed = 1
-        if chair:getDriver():keyDown(IN_KEY.SPEED) then
-            speed = 5
-        end
-        
-        
-        local forward = 0
-        forwardSpeed = 60 * speed
-        
-        if chair:getDriver():keyDown(IN_KEY.FORWARD) then
-            forward = forward + forwardSpeed
-        end
-        if chair:getDriver():keyDown(IN_KEY.BACK) then
-            forward = forward - forwardSpeed
-        end
-        --chair:applyForceCenter(chair:getForward() * forward)
-        chair:setPos(chip():getPos() + Vector(0,0,50))
-        
+
+        local forward = control(driver:keyDown(IN_KEY.JUMP), driver:keyDown(IN_KEY.DUCK), 10)
+        forwardSpeed = forwardSpeed * 0.999 + forward
+        chair:applyForceCenter(camLink.CamDir * forwardSpeed)
+        --chair:setPos(center + Vector(0,0,50))     
     else
-        --chair:setFrozen(true)        
-        eyelink.Enable = 0
+        forwardSpeed = 0
+        chair:setPos(center + Vector(0,0,50))  
+        chair:setAngles(Angle())
         camLink.Activated = 0
     end
 
 end)
-]]
+
