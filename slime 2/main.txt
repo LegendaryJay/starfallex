@@ -1,0 +1,37 @@
+--@name new slime
+--@author Lil'Tugboat
+--@shared
+
+if SERVER then
+   
+    
+    local targetRadius = 15 -- Layer 1: slime pushes away from things this close
+    local deadzoneRadius = 3 -- Layer 2" slime likes this area
+    local stickyRadius = 15 -- Layer 3: slime reaches for things here
+    
+    
+    body = prop.create(chip():getPos() + Vector(0,0, targetRadius + stickyRadius), Angle(), "models/sprops/geometry/sphere_6.mdl", true)
+    
+    targetSphere = hologram.create(body:obbCenterW(), body:getAngles(), "models/sprops/geometry/sphere_144.mdl")
+    targetSphere:setSize(Vector(-2,2,2) * (targetRadius - deadzoneRadius * 0.5))
+    targetSphere:setParent(body)
+    targetSphere:setColor(Color(255, 0,0, 100))
+    
+    deadSphere = hologram.create(body:obbCenterW(), body:getAngles(), "models/sprops/geometry/sphere_144.mdl")
+    deadSphere:setSize(Vector(-2,2,2) * (targetRadius + deadzoneRadius * 0.5))
+    deadSphere:setParent(body)
+    deadSphere:setColor(Color(255, 255, 255, 100))
+    
+
+    stickySphere = hologram.create(body:obbCenterW(), body:getAngles(), "models/sprops/geometry/sphere_144.mdl")
+    stickySphere:setSize(Vector(-2,2,2) * (targetRadius + stickyRadius))
+    stickySphere:setParent(body)
+    stickySphere:setColor(Color(0, 255, 0, 100))
+    
+    
+    
+    
+else
+
+
+end

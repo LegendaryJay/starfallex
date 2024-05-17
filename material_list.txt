@@ -35,7 +35,6 @@ if CLIENT then
                 if ent then 
                     materialList = ent:getMaterials()
                     materialList[#materialList + 1] = ent:getMaterial() != "" and ent:getMaterial() or nil
-                    holo
                 end
             elseif key == IN_KEY.ATTACK then
                 print("paste")

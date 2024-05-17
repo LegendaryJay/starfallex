@@ -1,0 +1,217 @@
+--@name jumpy movement
+--@author Lil'Tugboat
+--@server
+
+local owner = owner()
+local lastPressTimes = {left = 0, right = 0, forward = 0, back = 0, up = 0, use = 0}
+local jumps = 0
+local jumpDist = 400
+local tapLength = 0.2
+
+local activeHook = false
+
+
+
+
+holoTeleport = hologram.create(Vector(), Angle(), "models/holograms/hq_icosphere.mdl")
+holoTeleport:setColor(Color(255, 0, 0, 0))
+
+
+local ownerHalfSize = owner:obbSize() * 0.5
+
+local function isSafeTP(pos)
+   return not trace.hull(pos, pos, -ownerHalfSize, ownerHalfSize, owner).Hit
+end
+
+local function findSafeTeleportPos(direction, distance)
+    local function returnFix(vector)
+        return localToWorld(-owner:obbCenter(), Angle(), vector, owner:getAngles())
+    end
+
+    local startPos = owner:obbCenterW()
+    local endPos = startPos + direction * distance
+    local obbSize = owner:obbSize() * 0.5
+    local mins = -obbSize
+    local maxs = obbSize
+    local filter = owner
+
+    local result
+    
+    vecs = {
+        Vector(0, 0, 0),
+        Vector(1, 0, 0),
+        Vector(-1, 0, 0),
+        Vector(0, 1, 0),
+        Vector(0, -1, 0),
+        Vector(0, 0, 1),
+        Vector(0, 0, -1),
+    }
+    
+    for _, vector in ipairs(vecs) do
+        t = trace.hull(endPos + vector * obbSize * 2, endPos, mins, maxs, filter)
+        if not t.StartSolid then
+            return returnFix(t.HitPos)
+        end
+    end
+    
+    result = endPos
+    closestDist = distance + 1
+    degreeCheck = 40
+    local axis = direction:cross(Vector(0, 0, 1))
+    local breakNext = false
+    for deg = 0, degreeCheck, degreeCheck * 0.05 do
+        for dist = distance, 0, distance * -0.05 do
+            local testPos = startPos + direction:rotateAroundAxis(axis, deg) * dist
+            if isSafeTP(testPos) then
+                nearness = endPos:getDistance(testPos)
+                if nearness < closestDist then
+                    closestDist = nearness
+                    result = testPos
+                end
+                if dist == distance then 
+                    return returnFix(result)
+                end
+                break
+            end
+        end
+    end
+
+    return returnFix(result)
+end
+
+function 
+
+hook.add("KeyPress", "detectDoubleClick", function(ply, key)
+    if ply ~= owner then return end
+
+    local currentTime = timer.curtime()
+
+    if key == IN_KEY.MOVELEFT then
+        if currentTime - lastPressTimes.left < tapLength then
+            local newPos = findSafeTeleportPos(-owner:getRight(), jumpDist)
+            owner:setPos(newPos)
+            lastPressTimes.left = 0 -- reset to prevent triple jump
+        else
+            lastPressTimes.left = currentTime
+        end
+    elseif key == IN_KEY.MOVERIGHT then
+        if currentTime - lastPressTimes.right < tapLength then
+            local newPos = findSafeTeleportPos(owner:getRight(), jumpDist)
+            owner:setPos(newPos)
+            lastPressTimes.right = 0
+        else
+            lastPressTimes.right = currentTime
+        end
+    elseif key == IN_KEY.FORWARD then
+        if currentTime - lastPressTimes.forward < tapLength then
+            local newPos = findSafeTeleportPos(owner:getForward(), jumpDist)
+            owner:setPos(newPos)
+            lastPressTimes.forward = 0
+        else
+            lastPressTimes.forward = currentTime
+        end
+    elseif key == IN_KEY.BACK then
+        if currentTime - lastPressTimes.back < tapLength then
+            local newPos = findSafeTeleportPos(-owner:getForward(), jumpDist)
+            owner:setPos(newPos)
+            lastPressTimes.back = 0
+        else
+            lastPressTimes.back = currentTime
+        end
+    elseif key == IN_KEY.JUMP then
+        jumpT = trace.trace(owner:getPos(), owner:getPos() + owner:getForward() * ownerHalfSize[1] * 2 , owner)
+        if not owner:isOnGround() and jumpT.Hit and math.abs(jumpT.HitNormal:getAngle()[1]) < 10 then
+            print("wall bounce")
+            jumps = 0
+            owner:setVelocity((jumpT.HitNormal + owner:getUp()):getNormalized() * 400)
+            owner:setEyeAngles(owner:getEyeAngles():setY(jumpT.HitNormal:getAngle()[2]))
+        elseif jumps <= 1 then
+            jumps = jumps + 1
+            owner:setVelocity(owner:getVelocity():setZ(400))
+        end
+    elseif key == IN_KEY.USE then
+        if currentTime - lastPressTimes.use < tapLength then
+            local newPos = trace.hull(owner:obbCenterW(),owner:obbCenterW() + owner:getEyeAngles():getForward() * 1000, -ownerHalfSize, ownerHalfSize, owner).HitPos
+            owner:setPos(newPos )
+            lastPressTimes.use = 0
+        else
+            lastPressTimes.use = currentTime
+            local t = trace.line(owner:obbCenterW(),owner:obbCenterW() + owner:getEyeAngles():getForward() * 5000, owner)
+            if not t.Hit then return end
+            if t.Entity and t.Entity:isValid() then
+                hookEnt = t.Entity
+                hookPos = hookEnt:worldToLocal(t.HitPos) -- this line was missing an argument in the original code
+            else
+                hookEnt = nil
+                hookPos = t.HitPos
+            end
+            activeHook = true
+        end
+    end
+end)
+
+
+
+hook.add("KeyRelease", "releaseReload", function(ply, key)
+    if ply == owner and key == IN_KEY.USE then
+        activeHook = false
+        holoTeleport:setColor(Color(255, 0, 0, 0)) -- reset color
+    end
+end)
+
+local airSpeed = 10
+
+hook.add("tick", "buttonDown", function()
+    if player() != owner then return end
+    
+    local velDir = Vector()
+        
+    if owner:keyDown( IN_KEY.MOVELEFT) then
+        if not owner:isOnGround() then
+            velDir = velDir + -owner:getRight() * airSpeed
+        end
+    end
+    if owner:keyDown(IN_KEY.MOVERIGHT) then
+        if not owner:isOnGround() then
+            velDir = velDir + owner:getRight() * airSpeed
+        end
+    end
+    if owner:keyDown(IN_KEY.FORWARD) then
+        if not owner:isOnGround() then
+            velDir = velDir + owner:getForward() * airSpeed
+        end
+    end
+    if owner:keyDown(IN_KEY.BACK) then
+        if not owner:isOnGround() then
+            velDir = velDir + -owner:getForward() * airSpeed
+        end
+    end
+    if activeHook then
+        local pos = hookPos
+        if hookEnt then
+            if not hookEnt:isValid() then 
+                activeHook = false
+            else 
+                pos = hookEnt:localToWorld(hookPos)
+            end
+        end
+        if activeHook then
+            local vector = pos - owner:obbCenterW()
+            velDir = velDir + vector:getNormalized() * 25
+            
+            holoTeleport:setPos(owner:obbCenterW() + vector * 0.5)
+            holoTeleport:setAngles(vector:getAngle())
+            holoTeleport:setSize(Vector(vector:getLength(), 2, 2))
+            holoTeleport:setColor(Color(0, 0, 0, 255))
+        else
+            holoTeleport:setColor(Color(0, 255, 0, 0))
+        end
+    end
+    
+    if not velDir:isZero() then
+        owner:setVelocity(velDir)
+    end
+    if owner:isOnGround() then
+        jumps = 0
+    end
+end)
