@@ -1,0 +1,71 @@
+--@name 7 Segment Display
+--@author Lil'Tugboat
+--@shared
+
+SevenSegmentDisplay = class("SevenSegmentDisplay")
+
+function SevenSegmentDisplay:initialize(position, angle, scale, onMaterial, onColor, offMaterial, offColor, parent)
+    self.position = position
+    self.model = "models/segment2.mdl"
+    self.angle = angle
+    self.scale = scale
+    self.onMaterial = onMaterial
+    self.onColor = onColor
+    self.offMaterial = offMaterial
+    self.offColor = offColor
+    self.parent = parent
+
+    self.segmentPatterns = {
+        [0] = {true, true, true, true, true, true, false},
+        [1] = {false, true, true, false, false, false, false},
+        [2] = {true, true, false, true, true, false, true},
+        [3] = {true, true, true, true, false, false, true},
+        [4] = {false, true, true, false, false, true, true},
+        [5] = {true, false, true, true, false, true, true},
+        [6] = {true, false, true, true, true, true, true},
+        [7] = {true, true, true, false, false, false, false},
+        [8] = {true, true, true, true, true, true, true},
+        [9] = {true, true, true, true, false, true, true}
+    }
+
+    self.segmentPositions = {
+        {position = Vector(0, 0, 60), angle = Angle()},
+        {position = Vector(0, -30, 30), angle = Angle(0, 0, 90)},
+        {position = Vector(0, -30, -30), angle = Angle(0, 0, 90)},
+        {position = Vector(0, 0, -60), angle = Angle(0, 0, 0)},
+        {position = Vector(0, 30, -30), angle = Angle(0, 0, 90)},
+        {position = Vector(0, 30, 30), angle = Angle(0, 0, 90)},
+        {position = Vector(), angle = Angle()}
+    }
+
+    self.holograms = {}
+    return self
+end
+
+function SevenSegmentDisplay:spawn()
+    for index, segment in ipairs(self.segmentPositions) do
+        local pos, ang = localToWorld(segment.position * self.scale, segment.angle, self.position, self.angle)
+        local holo = hologram.create(pos, ang, self.model, Vector(1, 1, 1) * self.scale)
+        holo:setParent(self.parent)
+        holo:setScale(self.scale * Vector(1, 1, 1))
+        self.holograms[index] = holo
+    end
+
+    if self.parent then
+        for index, holo in ipairs(self.holograms) do
+            if index ~= 1 then
+                holo:setParent(self.parent)
+            end
+        end
+    end
+end
+
+function SevenSegmentDisplay:draw(number)
+    for index, holo in ipairs(self.holograms) do
+        local isOn = self.segmentPatterns[number][index]
+        holo:setMaterial(isOn and self.onMaterial or self.offMaterial)
+        holo:setColor(isOn and self.onColor or self.offColor)
+    end
+end
+
+return SevenSegmentDisplay

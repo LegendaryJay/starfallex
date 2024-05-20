@@ -1,0 +1,89 @@
+--@name input Controller
+--@author Lil'Tugboat
+--@server
+
+InputController = class("InputController")
+
+function InputController:initialize()
+    self.inputs = {}
+end
+
+function InputController:setInputControl(key, singleInput)
+    self.inputs[key] = singleInput
+end
+
+function InputController:handleKeyPress(ply, key)
+    if self.inputs[key] then
+        self.inputs[key]:handlePress(ply)
+    end
+end
+
+function InputController:handleKeyRelease(ply, key)
+    if self.inputs[key] then
+        self.inputs[key]:handleRelease(ply)
+    end
+end
+
+function InputController:handleTick()
+    local players = find.allPlayers()
+    for _, ply in pairs(players) do
+        for _, inp in pairs(self.inputs) do
+            inp:handleTick(ply)
+        end
+    end
+end
+
+function InputController:init(player)
+    hook.add("KeyPress", "handleKeyPress", function(ply, key)
+        if player == nil or ply == player then
+            self:handleKeyPress(ply, key)
+        end
+    end)
+
+    hook.add("KeyRelease", "handleKeyRelease", function(ply, key)
+        if player == nil or ply == player then
+            self:handleKeyRelease(ply, key)
+        end
+    end)
+
+    hook.add("tick", "handleTick", function()
+        self:handleTick()
+    end)
+end
+
+
+
+--[[
+--@server
+
+--@include libs/input_class.txt
+--@include libs/input_controller.txt
+InputController = require("libs/input_controller.txt")
+SingleInput = require("libs/input_class.txt")
+
+
+local inputController = InputController:new()
+-- Example setup for a specific key, e.g., IN_KEY.MOVELEFT
+local moveLeftInput = SingleInput:new()
+moveLeftInput:setPressFunction(function(ply) 
+    print(ply:getName() .. " pressed the left key") 
+end)
+moveLeftInput:setTapFunction(function(ply) 
+    print(ply:getName() .. " tapped the left key") 
+end)
+moveLeftInput:setOnHoldFunction(function(ply) 
+    print(ply:getName() .. " is holding the left key") 
+end)
+moveLeftInput:setDoubleTapFunction(function(ply) 
+    print(ply:getName() .. " double-tapped the left key") 
+end)
+
+moveLeftInput:setReleaseFunction(function(ply, isTapped) 
+    print(ply:getName() .. " released the left key") 
+end)
+
+inputController:setInputControl(IN_KEY.MOVELEFT, moveLeftInput)
+
+]]
+
+return InputController

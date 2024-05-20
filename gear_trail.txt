@@ -1,0 +1,12 @@
+--@name gear trail
+--@author Lil'Tugboat
+--@server
+
+local coin = find.all(function(ent) return ent:getClass() == "bs_gear_rarity" and not ent:getPos():isZero() and ent:getOwner() == owner() end)[1]
+
+local vectors = 
+    Vector(1,0,0),
+
+
+prop.create(coin:obbCenterW() - Vector( 0, 0, coin:obbSize()[3]) * 0.5, Angle(), "models/sprops/rectangles_thin/size_2_5/rect_18x18x1_5.mdl")
+

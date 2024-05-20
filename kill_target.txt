@@ -4,12 +4,13 @@
 
 
 player = find.allPlayers(function(ply) 
-    return string.find(ply:getName():lower(), ("lil"):lower(), 1, false)
+    return string.find(ply:getName():lower(), ("faz"):lower(), 1, false)
 end)[1]
+print(player)
 hook.add("think", "hurt", function() 
    
     if owner():keyDown(IN_KEY.RELOAD) then
-        game.blastDamage(player:obbCenterW(), 1000, 10000)
+        game.blastDamage(player:obbCenterW(), 1, 1)
     end
 end)
 

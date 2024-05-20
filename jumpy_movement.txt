@@ -1,217 +1,360 @@
 --@name jumpy movement
---@author Lil'Tugboat
 --@server
 
+--@include libs/input_class.txt
+--@include libs/input_controller.txt
+InputController = require("libs/input_controller.txt")
+SingleInput = require("libs/input_class.txt")
+
 local owner = owner()
-local lastPressTimes = {left = 0, right = 0, forward = 0, back = 0, up = 0, use = 0}
-local jumps = 0
-local jumpDist = 400
-local tapLength = 0.2
-
-local activeHook = false
+local inputController = InputController:new()
 
 
 
-
-holoTeleport = hologram.create(Vector(), Angle(), "models/holograms/hq_icosphere.mdl")
-holoTeleport:setColor(Color(255, 0, 0, 0))
-
-
-local ownerHalfSize = owner:obbSize() * 0.5
-
-local function isSafeTP(pos)
-   return not trace.hull(pos, pos, -ownerHalfSize, ownerHalfSize, owner).Hit
+-- Velocity stuff
+local velocity = Vector()
+function addVel(vec)
+    velocity = velocity + vec
 end
 
-local function findSafeTeleportPos(direction, distance)
-    local function returnFix(vector)
-        return localToWorld(-owner:obbCenter(), Angle(), vector, owner:getAngles())
-    end
-
-    local startPos = owner:obbCenterW()
-    local endPos = startPos + direction * distance
-    local obbSize = owner:obbSize() * 0.5
-    local mins = -obbSize
-    local maxs = obbSize
-    local filter = owner
-
-    local result
-    
-    vecs = {
-        Vector(0, 0, 0),
-        Vector(1, 0, 0),
-        Vector(-1, 0, 0),
-        Vector(0, 1, 0),
-        Vector(0, -1, 0),
-        Vector(0, 0, 1),
-        Vector(0, 0, -1),
-    }
-    
-    for _, vector in ipairs(vecs) do
-        t = trace.hull(endPos + vector * obbSize * 2, endPos, mins, maxs, filter)
-        if not t.StartSolid then
-            return returnFix(t.HitPos)
-        end
-    end
-    
-    result = endPos
-    closestDist = distance + 1
-    degreeCheck = 40
-    local axis = direction:cross(Vector(0, 0, 1))
-    local breakNext = false
-    for deg = 0, degreeCheck, degreeCheck * 0.05 do
-        for dist = distance, 0, distance * -0.05 do
-            local testPos = startPos + direction:rotateAroundAxis(axis, deg) * dist
-            if isSafeTP(testPos) then
-                nearness = endPos:getDistance(testPos)
-                if nearness < closestDist then
-                    closestDist = nearness
-                    result = testPos
-                end
-                if dist == distance then 
-                    return returnFix(result)
-                end
-                break
-            end
-        end
-    end
-
-    return returnFix(result)
+function clearVel()
+    tempVel = velocity
+    velocity = Vector()
+    return tempVel
 end
 
-function 
 
-hook.add("KeyPress", "detectDoubleClick", function(ply, key)
-    if ply ~= owner then return end
+-- Fuel system
+local jetFuelMax = 1000
+local jetFuel = jetFuelMax
+local lastused = 0
 
-    local currentTime = timer.curtime()
+local function useJet(fuel, direction, freeVec)
+    freeVec = freeVec or Vector(0,0,0)
+    if fuel <= jetFuel then
+        jetFuel = jetFuel - fuel
+        addVel( freeVec + direction * fuel )
+    end
+end
+local function jetBurst()
+    useJet(500, Vector(0,0,1), Vector(0,0,- math.min(0, owner:getVelocity()[3])))
+    print("burst " .. jetFuel)
+end
+local function jetRefuel(amount)
+    jetFuel = math.min(jetFuel + amount, jetFuelMax)    
+end
 
-    if key == IN_KEY.MOVELEFT then
-        if currentTime - lastPressTimes.left < tapLength then
-            local newPos = findSafeTeleportPos(-owner:getRight(), jumpDist)
-            owner:setPos(newPos)
-            lastPressTimes.left = 0 -- reset to prevent triple jump
+
+local function dash(direction)
+    local dashSpeed = 500 -- Adjust the dash speed as needed
+    useJet(dashSpeed, direction, dashSpeed * direction)
+end
+
+
+-- Air movement
+local function airControl(direction)
+    if not owner:isOnGround() then
+        local airSpeed = 5 -- Adjust the air control speed as needed
+        local newVelocity = direction:getNormalized() * airSpeed
+        addVel(newVelocity)
+    end
+end
+
+
+-- Grappling stuff
+hookHolo = hologram.create(Vector(), Angle(), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl")
+hookHolo:setColor(Color(255, 0, 0, 0))
+hookHolo:setDrawShadow(false)
+hookHolo:setSolid(false)
+
+local hookActive = false
+local hookEntMode = false
+local hookPos = Vector()
+local hookEntity = nil
+local hookEntPos = Vector()
+
+local function shootHook()
+    
+    local t = trace.line(owner:getEyePos(),owner:getEyePos() + owner:getEyeAngles():getForward() * 5000, owner)
+    if t.Hit then
+        hookActive = true
+        hookPos = t.HitPos
+        if t.Entity and t.Entity:isValid() then
+            hookEntMode = true
+            hookEntity = t.Entity
+            hookEntPos = t.Entity:worldToLocal(hookPos)
         else
-            lastPressTimes.left = currentTime
+            hookEntity = nil
         end
-    elseif key == IN_KEY.MOVERIGHT then
-        if currentTime - lastPressTimes.right < tapLength then
-            local newPos = findSafeTeleportPos(owner:getRight(), jumpDist)
-            owner:setPos(newPos)
-            lastPressTimes.right = 0
+        
+        hookHolo:setPos(hookPos)
+        hookHolo:setColor(Color(0, 0, 0, 255))
+    end
+end
+
+
+local function runHook()
+    if hookActive then
+        local targetPos
+        if hookEntMode and hookEntity and hookEntity:isValid() then
+            targetPos = hookEntity:localToWorld(hookEntPos)
+            hookHolo:setPos(targetPos)
         else
-            lastPressTimes.right = currentTime
+            targetPos = hookPos
         end
-    elseif key == IN_KEY.FORWARD then
-        if currentTime - lastPressTimes.forward < tapLength then
-            local newPos = findSafeTeleportPos(owner:getForward(), jumpDist)
-            owner:setPos(newPos)
-            lastPressTimes.forward = 0
-        else
-            lastPressTimes.forward = currentTime
-        end
-    elseif key == IN_KEY.BACK then
-        if currentTime - lastPressTimes.back < tapLength then
-            local newPos = findSafeTeleportPos(-owner:getForward(), jumpDist)
-            owner:setPos(newPos)
-            lastPressTimes.back = 0
-        else
-            lastPressTimes.back = currentTime
-        end
-    elseif key == IN_KEY.JUMP then
-        jumpT = trace.trace(owner:getPos(), owner:getPos() + owner:getForward() * ownerHalfSize[1] * 2 , owner)
-        if not owner:isOnGround() and jumpT.Hit and math.abs(jumpT.HitNormal:getAngle()[1]) < 10 then
-            print("wall bounce")
-            jumps = 0
-            owner:setVelocity((jumpT.HitNormal + owner:getUp()):getNormalized() * 400)
-            owner:setEyeAngles(owner:getEyeAngles():setY(jumpT.HitNormal:getAngle()[2]))
-        elseif jumps <= 1 then
-            jumps = jumps + 1
-            owner:setVelocity(owner:getVelocity():setZ(400))
-        end
-    elseif key == IN_KEY.USE then
-        if currentTime - lastPressTimes.use < tapLength then
-            local newPos = trace.hull(owner:obbCenterW(),owner:obbCenterW() + owner:getEyeAngles():getForward() * 1000, -ownerHalfSize, ownerHalfSize, owner).HitPos
-            owner:setPos(newPos )
-            lastPressTimes.use = 0
-        else
-            lastPressTimes.use = currentTime
-            local t = trace.line(owner:obbCenterW(),owner:obbCenterW() + owner:getEyeAngles():getForward() * 5000, owner)
-            if not t.Hit then return end
-            if t.Entity and t.Entity:isValid() then
-                hookEnt = t.Entity
-                hookPos = hookEnt:worldToLocal(t.HitPos) -- this line was missing an argument in the original code
+        
+        local vector = targetPos - owner:obbCenterW()
+        local distance = vector:getLength()
+        local direction = vector / distance
+        
+        local currentVelocity = owner:getVelocity()
+        local dampingFactor = 0.5 -- Adjust this factor to control how much velocity is removed (0.5 means 50% reduction)
+        
+        -- Calculate the dot product to determine the angle
+        local velocityDirection = currentVelocity:getNormalized()
+        local dotProduct = direction:dot(velocityDirection)
+        
+        local pullFactor = math.max(0, dotProduct) -- Only pull when moving away (dotProduct > 0)
+        local newVelocity = direction * math.min(40, distance * 0.0001) - Vector(0, 0, -currentVelocity[3])
+        
+        if hookEntMode then
+            if hookEntity then
+                newVelocity = newVelocity + hookEntity:getVelocity() * pullFactor
             else
-                hookEnt = nil
-                hookPos = t.HitPos
+                hookActive = false
+                return
             end
-            activeHook = true
         end
+        
+        owner:setVelocity(newVelocity)
+        
+        -- Add the pulling force
+        addVel(direction * 30)
+        
+        -- Update hook hologram position
+        hookHolo:setPos(owner:obbCenterW() + vector * 0.5)
+        hookHolo:setAngles(vector:getAngle())
+        hookHolo:setSize(Vector(vector:getLength(), 3, 3))
     end
+end
+
+
+local function cancelHook()
+    hookActive = false
+    hookEntMode = false
+    hookEntity = nil
+    
+    hookHolo:setColor(Color(0, 0, 0, 0))
+end
+
+-- Wall running
+local isWallRunning = false
+local lastWallNormal = nil
+local wallRunVector = nil
+local wallRunStart = nil
+local cancelWallRunTime = nil
+local shallowStartTime = 0
+local shallowRun = false
+local wallHolo = hologram.create(Vector(), Angle(), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl")
+
+
+local function cancelWallRun()
+    if isWallRunning then
+        isWallRunning = false
+        shallowRun = false
+        lastWallNormal = nil
+        wallRunPath = {}
+        cancelWallRunTime = timer.curtime()
+        wallHolo:setColor(Color(0, 255, 0, 0))
+    end
+end
+
+local function initiateWallRun()
+    if owner:isOnGround() then
+        isWallRunning = false
+        lastWallNormal = nil
+        wallRunPath = {}
+        wallHolo:setColor(Color(0, 255, 0, 0))
+        return
+    end
+    
+    local vel = owner:getVelocity()
+    local velDir = vel:getNormalized()
+    local size = owner:obbSize() * 0.5
+    local traceResult = trace.hull(owner:obbCenterW(), owner:obbCenterW() + velDir * size[1] * 2, -size, size, owner)
+    
+    if traceResult.Hit then        
+        local hitNormal = traceResult.HitNormal
+        local angleBetween = math.deg(math.acos(hitNormal:dot(-velDir)))
+
+        -- Check for shallow angle intersection
+        local shallowAngleThreshold = 35 -- Adjust the threshold for what is considered a shallow angle
+        local velocityAngleWithNormal = math.deg(math.acos(velDir:dot(-hitNormal)))
+
+        if angleBetween < 90 and math.abs(hitNormal:getAngle().pitch) < 10 then
+            isWallRunning = true
+            
+            wallRunStart = traceResult.HitPos
+            lastWallNormal = hitNormal
+            length = vel:getLength()
+            wallRunVector = (velDir - hitNormal * velDir:dot(hitNormal)) * length
+            
+            if velocityAngleWithNormal < shallowAngleThreshold then
+                print("shallow angle wall run!")
+                shallowRun = true
+                shallowStartTime = timer.curtime()
+                                -- Update wall hologram
+                wallHolo:setPos(wallRunStart)
+                wallHolo:setSize(Vector(3, 3, 3))
+            else
+                print("wallrun!")
+                -- Update wall hologram
+                wallHolo:setPos(wallRunStart + wallRunVector * 0.5)
+                wallHolo:setSize(Vector(length, 3, 3))
+                
+            end
+            wallHolo:setAngles(wallRunVector:getAngle())
+            wallHolo:setColor(Color(0, 255, 0, 255))
+        else
+            cancelWallRun()
+        end
+    else
+        cancelWallRun()
+    end
+end
+
+
+
+
+
+local function continueWallRun()
+    if isWallRunning then
+        vector = wallRunVector
+        if shallowRun then
+            local now = timer.curtime()
+            if now - shallowStartTime > 1 then
+                cancelWallRun()
+                print("timeout")
+                return
+            end
+            vector = Vector()
+        end
+            
+        addVel(vector - lastWallNormal - owner:getVelocity())
+        
+        -- Check if the wall is still present near the player's feet
+        local traceResult = trace.line( owner:getPos(),  owner:getPos() - lastWallNormal * 40, owner)
+        
+        if not traceResult.Hit then
+            cancelWallRun()
+            print("no building")
+        else 
+            lastWallNormal = traceResult.HitNormal
+        end   
+    end
+end
+
+
+
+
+
+-- All the controlls
+
+-- Setting up the input for moving left
+local moveLeftInput = SingleInput:new()
+moveLeftInput:setDoubleTapFunction(function(ply) 
+    dash(-owner:getRight())
+end)
+moveLeftInput:setOnHoldFunction(function(ply) 
+    airControl(-owner:getRight())
 end)
 
 
-
-hook.add("KeyRelease", "releaseReload", function(ply, key)
-    if ply == owner and key == IN_KEY.USE then
-        activeHook = false
-        holoTeleport:setColor(Color(255, 0, 0, 0)) -- reset color
-    end
+-- Setting up the input for moving right
+local moveRightInput = SingleInput:new()
+moveRightInput:setDoubleTapFunction(function(ply) 
+    dash(owner:getRight())
+end)
+moveRightInput:setOnHoldFunction(function(ply) 
+    airControl(owner:getRight())
 end)
 
-local airSpeed = 10
+
+-- Setting up the input for moving forward
+local moveForwardInput = SingleInput:new()
+moveForwardInput:setDoubleTapFunction(function(ply) 
+    dash(owner:getForward())
+end)
+moveForwardInput:setOnHoldFunction(function(ply) 
+    airControl(owner:getForward())
+end)
+
+
+-- Setting up the input for moving backward
+local moveBackInput = SingleInput:new()
+moveBackInput:setDoubleTapFunction(function(ply) 
+    dash(-owner:getForward())
+end)
+moveBackInput:setOnHoldFunction(function(ply) 
+    airControl(-owner:getForward())
+end)
+
+-- Setting up the input for jumping
+local jumpInput = SingleInput:new()
+jumpInput:setPressFunction(function(ply) 
+    if isWallRunning then
+        -- Add velocity up and away from the wall
+        local speed = wallRunVector:getLength()
+        local dir = wallRunVector / speed
+        local boostDirection = (dir * 0.6 + Vector(0,0,1) * 0.2 + lastWallNormal * 0.2):getNormalized()
+        addVel(boostDirection * speed * 1.05) 
+        print("Bounce!")
+        cancelWallRun()
+    else
+        jetBurst()
+    end
+end)
+-- Setting up the input for the hook
+local hookInput = SingleInput:new()
+hookInput:setPressFunction(function(ply)
+    shootHook()
+end)
+hookInput:setOnHoldFunction(function(ply)
+    runHook()
+end)
+hookInput:setReleaseFunction(function(ply)
+    cancelHook()
+end)
+
+inputController:setInputControl(IN_KEY.MOVELEFT, moveLeftInput)
+inputController:setInputControl(IN_KEY.MOVERIGHT, moveRightInput)
+inputController:setInputControl(IN_KEY.FORWARD, moveForwardInput)
+inputController:setInputControl(IN_KEY.BACK, moveBackInput)
+inputController:setInputControl(IN_KEY.JUMP, jumpInput)
+inputController:setInputControl(IN_KEY.USE, hookInput)
+
+-- Initialize the input controller for the owner
+inputController:init(owner)
+
 
 hook.add("tick", "buttonDown", function()
     if player() != owner then return end
-    
-    local velDir = Vector()
-        
-    if owner:keyDown( IN_KEY.MOVELEFT) then
-        if not owner:isOnGround() then
-            velDir = velDir + -owner:getRight() * airSpeed
-        end
+
+    if not isWallRunning then
+        initiateWallRun()
+    else
+        continueWallRun()
     end
-    if owner:keyDown(IN_KEY.MOVERIGHT) then
-        if not owner:isOnGround() then
-            velDir = velDir + owner:getRight() * airSpeed
-        end
+
+    owner:setVelocity(clearVel())
+
+    if owner:isOnGround() or isWallRunning then 
+        jetRefuel(1000)
+    else
+        jetRefuel(1)
     end
-    if owner:keyDown(IN_KEY.FORWARD) then
-        if not owner:isOnGround() then
-            velDir = velDir + owner:getForward() * airSpeed
-        end
-    end
-    if owner:keyDown(IN_KEY.BACK) then
-        if not owner:isOnGround() then
-            velDir = velDir + -owner:getForward() * airSpeed
-        end
-    end
-    if activeHook then
-        local pos = hookPos
-        if hookEnt then
-            if not hookEnt:isValid() then 
-                activeHook = false
-            else 
-                pos = hookEnt:localToWorld(hookPos)
-            end
-        end
-        if activeHook then
-            local vector = pos - owner:obbCenterW()
-            velDir = velDir + vector:getNormalized() * 25
-            
-            holoTeleport:setPos(owner:obbCenterW() + vector * 0.5)
-            holoTeleport:setAngles(vector:getAngle())
-            holoTeleport:setSize(Vector(vector:getLength(), 2, 2))
-            holoTeleport:setColor(Color(0, 0, 0, 255))
-        else
-            holoTeleport:setColor(Color(0, 255, 0, 0))
-        end
-    end
-    
-    if not velDir:isZero() then
-        owner:setVelocity(velDir)
-    end
+
     if owner:isOnGround() then
-        jumps = 0
+        cancelWallRun()
     end
 end)

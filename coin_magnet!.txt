@@ -2,53 +2,62 @@
 --@version 2.1
 --@server
 
-if owner() == player() then 
-    local coins = {}
-    local originalPos
-    local originalAng
-    local lastTime = 0
-    local delay = 0.05 -- configurable delay in seconds
+local coins = {}
+local originalPos
+local originalAng
+local posOffset
+local lastTime = 0
 
-    local function findCoins()
-        return find.all(function(ent) return ent:getClass() == "bs_gear_rarity" and not ent:getPos():isZero() and (not ent:getOwner() or not ent:getOwner():isValid()) end)
-    end
-    
-    local function interactWithCoins()
-        local running = false
-        local originalPos
-        local originalAng
-        while true do
-            
-            local coins = findCoins()
-            
-            if coins[1] and coins[1]:isValid() then
+local function findCoins()
+    return find.all(function(ent) return ent:getClass() == "prop_glados_core" and not ent:getPos():isZero() end)
+end
+
+local function interactWithCoins()
+    local running = false
+    while true do
+        if #coins == 0 then
+            coins = findCoins()
+            if #coins == 0 then
+                if running then
+                    concmd("-use")
+                    owner():setPos(originalPos)
+                    running = false
+                end
+                print("No coins left")
+                chip():remove()
+                coroutine.yield()
+            end
+        end
+
+        for i = #coins, 1, -1 do
+            local coin = coins[i]
+            if coin and coin:isValid() then
                 if not running then
                     posOffset = owner():getPos() - owner():getEyePos()
                     originalPos = owner():getPos()
+                    originalAng = owner():getEyeAngles()
+                    concmd("+use") 
                     running = true
                 end
-                coin = coins[1]
-                owner():setPos(coin:getPos() + posOffset - owner():getEyeAngles():getForward() * 5)
-                while coin and coin:isValid() do
-                    concmd("+use")
-                    coroutine.yield()
+                owner():setPos(coin:getPos() + posOffset - originalAng:getForward() * 5)
+                coroutine.yield()  -- Yield to allow the game to process the movement
+
+                if not coin:isValid() then
+                    table.remove(coins, i)
+                    print("Coin collected!")
+                else
+                    table.insert(coins, table.remove(coins, i))  -- Move coin to the end of the list
                 end
-                print("Captured coin!")
-                concmd("-use")
-                coroutine.yield()
-            elseif running then
-                owner():setPos(originalPos)
-                running = false
+            else
+                table.remove(coins, i)  -- Remove invalid coin from the list
             end
-            coroutine.yield()
         end
     end
-    
-    local co = coroutine.create(interactWithCoins)
-    hook.add("think", "coin_check", function()
-        if timer.curtime() - lastTime > delay then
-            coroutine.resume(co)
-            lastTime = timer.curtime()
-        end
-    end)
 end
+
+local co = coroutine.create(interactWithCoins)
+hook.add("think", "coin_check", function()
+    if coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    end
+end)

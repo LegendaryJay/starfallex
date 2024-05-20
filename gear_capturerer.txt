@@ -1,0 +1,189 @@
+--@name gear capturerer
+--@server
+
+
+
+local CoinCage = class("CoinCage")
+
+function CoinCage:initialize(coin, target)
+    self.coin = coin
+    self.props = {}
+    self.target = target
+    self.isFrozen = true
+    self.spawned = false
+    self.angles = {
+        Angle(0, 90, 0),
+        Angle(0, 0, 0),
+        Angle(0, 90, 90),
+    }
+end
+
+function CoinCage:tpCageToTarget()
+    if not self.coin or not self.coin:isValid() then
+        self:remove()
+        return
+    end
+
+    local coinPos = self.coin:localToWorld(-self.coin:obbCenter())
+
+    for i, p in ipairs(self.props) do
+        local coinAng = self.coin:localToWorldAngles(self.angles[i])
+        p:setPos(coinPos)
+        p:setAngles(coinAng)
+    end
+    coroutine.yield()
+end
+
+function CoinCage:spawn()
+    if not self.coin or not self.coin:isValid() then
+        self:remove()
+        return
+    end
+
+    local fringeSizes = {
+        12, 18, 24, 30, 36, 42, 48, 60, 72, 84, 96, 108, 120, 132, 144
+    }
+    local coinSize = self.coin:obbSize()[1] * 1.2
+    local modelSize = 0
+
+    for _, size in ipairs(fringeSizes) do
+        if size > coinSize then
+            modelSize = size
+            break
+        end
+    end
+
+    -- Spawn surrounding props
+    for i = 1, #self.angles do
+        local propPos = self.coin:localToWorld(-self.coin:obbCenter())
+        local propAngle = self.coin:localToWorldAngles(self.angles[i])
+        self.props[i] = prop.create(propPos, propAngle, "models/sprops/geometry/fring_" .. modelSize .. ".mdl", true)
+        self.props[i]:setMaterial("models/props_combine/metal_combinebridge001")
+        coroutine.yield()
+    end
+
+    -- Add constraints
+    for i1 = 1, #self.angles do
+        for i2 = i1 + 1, #self.angles do
+            local p1 = self.props[i1]
+            local p2 = self.props[i2]
+            constraint.weld(p1, p2, nil, nil, nil, true)
+        end
+    end
+
+    self.spawned = true
+end
+
+function CoinCage:freeze(freeze)
+    self.isFrozen = freeze
+    for _, p in ipairs(self.props) do
+        if p and p:isValid() then
+            p:setFrozen(freeze)
+        end
+    end
+end
+
+function CoinCage:move()
+    if not self.coin or not self.coin:isValid() then
+        self:remove()
+        return
+    end
+
+    if self.spawned then
+        local coinDist = (self.coin:getPos() - self.props[1]:getPos()):getLength()
+
+        if coinDist > self.coin:obbSize()[1] * 0.5 then
+            self:tpCageToTarget()
+            return
+        end
+
+        local vector = self.target - self.coin:getPos()
+        if vector:getLength() < 10 then
+            if not self.isFrozen then
+                self:freeze(true)
+            end
+            return
+        end
+
+        if self.isFrozen then
+            self:freeze(false)
+        end
+
+        -- Calculate the direction with adjusted scaling
+        local direction = Vector(vector[1], vector[2], vector[3] * 4):getNormalized()
+        self.props[1]:applyForceCenter(direction * 5000)
+    end
+end
+
+function CoinCage:remove()
+    for _, p in ipairs(self.props) do
+        if p and p:isValid() then
+            p:remove()
+        end
+    end
+    self.props = {}
+    self = nil
+end
+
+local lookup = {}
+local buildQueue = {}
+
+local function processBuildQueue()
+    while true do
+        if quotaAverage() < 0.8 and prop.canSpawn() then
+            local task = table.remove(buildQueue, 1)
+            if task then
+                task()
+            end
+        end
+        coroutine.yield()
+    end
+end
+
+local function coinController()
+    local coinCages = {}
+
+    while true do
+        local coins = find.all(function(ent) return string.startWith(ent:getClass(), "prop_glados_core") and not ent:getPos():isZero() and ent:getOwner() == owner() end)
+        for index, coin in pairs(coins) do
+            if not lookup[coin] then
+                local cage = CoinCage:new(coin, Vector(0, 0, -7000) + Vector(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 500)
+                table.insert(coinCages, cage)
+                lookup[coin] = cage
+            end
+        end
+        coroutine.yield()
+        for ind, cage in pairs(coinCages) do
+            if quotaAverage() < 0.8 then
+                if cage.coin and cage.coin:isValid() then
+                    if not cage.spawned then
+                        table.insert(buildQueue, function() cage:spawn() end)
+                        cage.spawned = true
+                    else
+                        cage:move()
+                    end
+                else
+                    cage:remove()
+                    table.remove(coinCages, ind)
+                end
+            else
+                coroutine.yield() -- Yield if CPU usage is too high
+            end
+        end
+        coroutine.yield()
+    end
+end
+
+local coBuildQueue = coroutine.create(processBuildQueue)
+hook.add("think", "processBuildQueue", function()
+    if coroutine.status(coBuildQueue) ~= "dead" then
+        coroutine.resume(coBuildQueue)
+    end
+end)
+
+local co = coroutine.create(coinController)
+hook.add("think", "coinController", function()
+    if coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    end
+end)

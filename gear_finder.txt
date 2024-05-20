@@ -1,0 +1,119 @@
+--@name
+--@shared
+
+if SERVER then
+    keyboard = prop.createSent(Vector(), Angle(), "gmod_wire_keyboard", 1, {
+        AutoBuffer = true,
+        EnterKeyAscii = true,
+        Model = "models/jaanus/wiretool/wiretool_input.mdl",
+        Synchronous = true,
+    })
+    link = wire.getWirelink(keyboard)
+    
+    net.receive("getCoord", function(len, ply)
+        keyboard:setPos(owner():getEyePos())
+        link["Reset Output String"] = 1
+        hook.add("think", "checkInUse", function() 
+            if link.InUse == 0 and lastUse == 1 then
+                
+                net.start("input")
+                    local num = tonumber(link.Output)
+                    net.writeFloat(num)
+                net.send(ply)
+                hook.remove("think", "checkInUse")
+            end
+            lastUse = link.InUse
+        end)
+    end)
+
+else
+    owner = owner()
+    if player() == owner then
+        enableHud(owner, true)
+        items = {}
+        local solution1 = nil
+        local solution2 = nil
+        local h1, h2, h3 = nil, nil, nil
+    
+        local function solveTrilateration(points)
+            local p1, p2, p3, p4 = points[1].vector, points[2].vector, points[3].vector, points[4].vector
+            local r1, r2, r3, r4 = points[1].distance, points[2].distance, points[3].distance, points[4].distance
+        
+            -- Solve using algebraic trilateration method
+            local ex = (p2 - p1):getNormalized()
+            local i = ex:dot(p3 - p1)
+            local ey = ((p3 - p1) - (ex * i)):getNormalized()
+            local ez = ex:cross(ey)
+            local d = p2:getDistance(p1)
+            local j = ey:dot(p3 - p1)
+            local x = (r1^2 - r2^2 + d^2) / (2 * d)
+            local y = ((r1^2 - r3^2 + i^2 + j^2) / (2 * j)) - ((i / j) * x)
+            local zSquared = r1^2 - x^2 - y^2
+            if zSquared < 0 then
+                zSquared = 0  -- Avoid taking the square root of a negative number
+            end
+            local z = math.sqrt(zSquared)
+            local result1 = p1 + (ex * x) + (ey * y) + (ez * z)
+            local result2 = p1 + (ex * x) + (ey * y) - (ez * z)
+            return result1, result2
+        end
+        
+        local function findHiddenLocation()
+            -- Solve for the hidden location
+            solution1, solution2 = solveTrilateration(items)
+            
+            h1 = hologram.create(solution1, Angle(), "models/sprops/geometry/fring_30.mdl")
+            h2 = hologram.create(solution2, Angle(), "models/sprops/geometry/fring_30.mdl")
+            h3 = hologram.create(solution2, Angle(), "models/sprops/geometry/fring_30.mdl")
+            
+            hook.add("think", "updateHolograms", function()
+                local obbCenter = owner:obbCenterW()
+                
+                -- Update h1
+                local dir1 = (solution1 - obbCenter):getNormalized()
+                local dist1 = obbCenter:getDistance(solution1)
+                local mid1 = (obbCenter + solution1) * 0.5
+                h1:setPos(mid1)
+                h1:setAngles(dir1:getAngle())
+                h1:setSize(Vector(dist1, 1, 1))
+                
+                -- Update h2
+                local dir2 = (solution2 - obbCenter):getNormalized()
+                local dist2 = obbCenter:getDistance(solution2)
+                local mid2 = (obbCenter + solution2) * 0.5
+                h2:setPos(mid2)
+                h2:setAngles(dir2:getAngle())
+                h2:setSize(Vector(dist2, 1, 1))
+                hook.add("think", "read", function() 
+                if owner:keyDown(IN_KEY.ATTACK2) and owner:getActiveWeapon() and owner:getActiveWeapon():getToolMode() == "bs_gear_radar" then
+                        net.start("getCoord")
+                        net.send(owner)
+                    end
+                end)
+            end)
+        end
+        
+        hook.add("think", "read", function() 
+            if owner:keyDown(IN_KEY.ATTACK2) and owner:getActiveWeapon() and owner:getActiveWeapon():getToolMode() == "bs_gear_radar" then
+                net.start("getCoord")
+                net.send(owner)
+            end
+        end)
+
+        net.receive("input", function()
+            local distance = net.readFloat()
+            local item = {
+                vector = owner:getPos(),
+                distance = distance
+            }
+            printTable(item)
+            table.insert(items, item)
+            
+            if #items == 4 then
+                printTable(items)
+                findHiddenLocation()
+                hook.remove("think", "read")
+            end
+        end)
+    end
+end

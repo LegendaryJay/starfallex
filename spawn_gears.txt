@@ -1,0 +1,32 @@
+--@name spawn gears
+--@author Lil'Tugboat
+--@server
+
+prop.setPropClean(false)
+prop.setPropUndo(false)
+propCount = 0
+local function spawnCoins()
+    while propCount < 100 do
+        randomAng = math.random() * 360
+        radius = 1000
+        
+        prop.createSent(
+            chip():getPos() + Vector( 
+                math.sin(math.rad(randomAng)) * radius * math.random(), 
+                math.cos(math.rad(randomAng)) * radius * math.random(), 
+                0
+            ),
+            Angle(), 
+            "prop_glados_core", --"bs_gear_rarity"
+        )
+        propCount = propCount + 1
+        coroutine.yield()
+    end
+end
+
+local co = coroutine.create(spawnCoins)
+hook.add("think", "coin_check", function()
+    if prop.canSpawn() and coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    end
+end)

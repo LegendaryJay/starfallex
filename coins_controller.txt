@@ -1,0 +1,77 @@
+--@name coins_controller
+--@server
+
+Coin = class("Coin")
+
+function Coin:initialize(entity)
+    self.entity = entity
+    self.TYPE = {
+        ANGER = 1,
+        CURIOSITY = 10,
+        INTELLIGENCE = 50,
+        MORALITY = 100
+    }
+    print("new!")
+    return self
+end
+
+function Coin:onUse()
+    if self.entity and self.entity:isValid() then
+        self.entity:breakEnt()
+    end
+end
+
+function Coin.create(vector, angle, freeze)
+    local COINS = {
+        "_anger",
+        "",
+        "_crazy",
+        "_morality",
+    }
+    local ent = prop.createSent(vector, angle, "prop_glados_core" .. table.random(COINS), freeze)
+    local coin = self:new(ent)
+    return coin
+end
+
+-- Controller for managing coins
+local coins = {}
+local lookup = {}
+
+-- Hook to check for key release actions
+hook.add("KeyRelease", "CoinUseCheck", function(ply, key)
+    if ply != owner() then return end
+    if not (key == IN_KEY.USE or key == IN_KEY.ATTACK or key == IN_KEY.ATTACK2) then return end
+
+    local t = trace.line(ply:getEyePos(), ply:getEyeAngles():getForward() * 300, ply)
+    local ent = t.Entity
+    --printTable(t)
+
+    if not ent or not ent:isValid() or not lookup[ent] then return end
+    
+    if ply:getEyePos():getDistance(lookup[ent]:getPos()) < 300 then
+        lookup[ent]:onUse()
+        lookup[ent] = nil
+    end
+end)
+
+-- Function to create a new coin
+function createCoin(vector, angle, freeze)
+    local coin = Coin.create(vector, angle, freeze)
+    table.insert(coins, coin)
+    lookup[ent] = coin
+end
+
+-- Function to check for new prop_glados_core entities and add them as coins
+function checkForNewCoins()
+    local entities = find.all(function(ent) 
+        return ent:getOwner() == owner() and string.startWith(ent:getClass(), "prop_glados_core") and not lookup[ent]
+    end)
+    for _, ent in ipairs(entities) do
+        local coin = Coin:new(ent)
+        table.insert(coins, coin)
+        lookup[ent] = coin
+    end
+end
+
+-- Hook to run the checkForNewCoins function every half tick
+timer.create("CheckForNewCoinsTimer", 0.5, 0, checkForNewCoins)

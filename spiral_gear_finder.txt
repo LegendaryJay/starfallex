@@ -1,0 +1,64 @@
+--@name Spiral Gear Finder
+--@author Lil'Tugboat
+--@server
+
+-- Configurable gap
+local gap = 100
+
+-- Define the center point
+local centerX = (15358.21875 + -13585.516601562) / 2
+local centerY = (15358.21875 + -15358.219726562) / 2
+local z = -12798
+
+-- Function to generate points in a squared spiral
+local function generateSpiral(centerX, centerY, gap)
+    local points = {}
+    local x, y = centerX, centerY
+    local dx, dy = gap, 0
+    local segment_length = 1
+    local steps = 0
+    local segment_passed = 0
+
+    table.insert(points, Vector(x, y, z))
+
+    while math.abs(x - centerX) <= 15358.21875 and math.abs(y - centerY) <= 15358.21875 do
+        x = x + dx
+        y = y + dy
+        table.insert(points, Vector(x, y, z))
+        steps = steps + 1
+        if steps == segment_length then
+            steps = 0
+            segment_passed = segment_passed + 1
+            if segment_passed % 2 == 0 then
+                segment_length = segment_length + 1
+            end
+            -- Rotate direction
+            local temp = dx
+            dx = -dy
+            dy = temp
+        end
+    end
+
+    return points
+end
+
+-- Generate spiral points
+local points = generateSpiral(centerX, centerY, gap)
+
+-- Create a coroutine
+local function pointIterator()
+    for _, point in ipairs(points) do
+        -- Process each point (x, y, z)
+        owner():setPos(point)
+        -- Yield the coroutine
+        coroutine.yield()
+    end
+end
+
+-- Create the coroutine
+local co = coroutine.create(pointIterator)
+hook.add("think", "jump!", function() 
+    if coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    end
+end)

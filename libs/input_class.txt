@@ -1,0 +1,87 @@
+--@name Input Class
+--@author Lil'Tugboat
+--@server
+
+SingleInput = class("SingleInput")
+
+function SingleInput:initialize()
+    self.press = nil
+    self.tap = nil
+    self.onHold = nil
+    self.doubleTap = nil
+    self.release = nil
+    
+    self.lastPressTime = {}
+    self.lastReleaseTime = {}
+    self.isHeld = {}
+    self.tapLength = 0.2
+end
+
+function SingleInput:setPressFunction(func)
+    self.press = func
+end
+
+function SingleInput:setTapFunction(func)
+    self.tap = func
+end
+
+function SingleInput:setOnHoldFunction(func)
+    self.onHold = func
+end
+
+function SingleInput:setDoubleTapFunction(func)
+    self.doubleTap = func
+end
+
+function SingleInput:setReleaseFunction(func)
+    self.release = func
+end
+
+function SingleInput:handlePress(ply)
+    local plyId = ply:getSteamID()
+    if self.press then
+        self.press(ply)
+    end
+    
+    local currentTime = timer.curtime()
+    if not self.lastPressTime[plyId] then
+        self.lastPressTime[plyId] = 0
+    end
+    self.lastPressTime[plyId] = currentTime
+    self.isHeld[plyId] = true
+end
+
+function SingleInput:handleRelease(ply)
+    local plyId = ply:getSteamID()
+    local currentTime = timer.curtime()
+    
+    if not self.lastReleaseTime[plyId] then
+        self.lastReleaseTime[plyId] = 0
+    end
+    
+    local isTapped = (currentTime - (self.lastPressTime[plyId] or 0) < self.tapLength)
+    if isTapped and (self.doubleTap or self.tap) then
+        if self.doubleTap and currentTime - self.lastReleaseTime[plyId] < self.tapLength then
+            self.doubleTap(ply)
+        elseif self.tap then 
+            self.tap(ply)
+        end
+    elseif self.release then
+        self.release(ply)
+    end
+    self.isHeld[plyId] = false
+    self.lastReleaseTime[plyId] = currentTime
+end
+
+function SingleInput:handleTick(ply)
+    local plyId = ply:getSteamID()
+    local currentTime = timer.curtime()
+    
+    if self.onHold and self.isHeld and self.isHeld[plyId] then
+        if  not self.tap or currentTime - self.lastPressTime[plyId] >= self.tapLength then
+            self.onHold(ply)
+        end
+    end
+end
+return SingleInput
+
