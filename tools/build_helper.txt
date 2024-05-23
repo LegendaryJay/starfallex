@@ -1,0 +1,245 @@
+--@name Build Helper
+--@author Lil'Tugboat
+--@shared
+
+if SERVER then
+    prop.setPropUndo(true)
+    prop.setPropClean(false)
+    
+    local propHolo
+    
+    local physEnt = nil
+    local startAng = Angle()
+    local collisionGroup = nil
+    
+    
+    
+    function deleteProp()
+        if physEnt then
+             print("Item Deleted")
+            physEnt:remove()
+            physEnt = nil
+        end
+    end
+    
+    function copyProp()
+        if physEnt then
+            local item = prop.create(physEnt:getPos(), physEnt:getAngles(), physEnt:getModel(), true)
+            item:setSkin(physEnt:getSkin())
+            item:setColor(physEnt:getColor())
+            item:setMaterial(physEnt:getMaterial())
+            item:setCollisionGroup(physEnt:getCollisionGroup())
+            print("Item Copied")
+        end
+    end
+    
+    function runRotate()
+        if allowRotate then
+            startAng = physEnt:getAngles()
+        else
+            physEnt:setAngles(startAng)
+        end
+        propHolo:setAngles(startAng)
+        propHolo:setPos(physEnt:getPos())
+    end
+    
+    hook.add("PhysgunPickup", "getEnt", function(ply, ent)
+        if ply ~= owner() or ent:getOwner() != owner()  then return end
+        physEnt = ent  
+        startAng = ent:getAngles()  
+        collisionGroup = ent:getCollisionGroup()
+        ent:setCollisionGroup(COLLISION_GROUP.WORLD)
+        ent:setNoDraw(true)
+        propHolo = hologram.create(ent:getPos(), ent:getAngles(), ent:getModel())
+        propHolo:setSkin(ent:getSkin())
+        propHolo:setColor(ent:getColor())
+        propHolo:setMaterial(ent:getMaterial())
+        
+
+        if doCopy then
+            doCopy = false
+            copyProp()
+        end
+    end)
+    
+    hook.add("PhysgunDrop", "getEnt", function(ply, ent)
+        if ply ~= owner() then return end
+        physEnt = nil
+        ent:setFrozen(true)
+        ent:setNoDraw(false)
+        ent:setCollisionGroup(collisionGroup)
+        if propHolo then
+            propHolo:remove()
+            propHolo = nil
+        end
+    end)
+    
+    hook.add("think", "doPhygunStuff", function()
+        if physEnt and physEnt then
+            runRotate()
+        else
+            physEnt = nil
+        end
+    end)
+    
+    
+    net.receive("allowRotate", function()
+        allowRotate = net.readBool()
+    end)
+    
+    net.receive("deleteProp", function()
+        deleteProp()
+    end)
+    
+    net.receive("copyProp", function()
+        doCopy = net.readBool()
+    end)
+    
+elseif player() == owner() then
+    enableHud(nil, true)
+    local targetEnt = nil
+    
+    local wasUsing = false
+    local wasDeleting = false
+    local wasCopying = false
+    
+    local activeInputs = {}
+    local watchInputs = {
+        KEY.E,
+        KEY.DELETE,
+        KEY.ALT,
+        KEY.ENTER,
+        KEY.CTRL
+    }
+    local watchInKey = {
+        [IN_KEY.ATTACK] = true,
+        [IN_KEY.ATTACK2] = true
+    }
+
+    hook.add("think", "watchPhygunStuff", function()
+        for _, key in pairs(watchInputs) do
+            mode = activeInputs[key]
+            active = input.isKeyDown(key)
+            
+            if not active then
+                if (mode or 0) > 0 then
+                    mode = 0
+                else
+                    mode = nil
+                end
+            else 
+                mode = (mode or 0) + 1
+            end
+            activeInputs[key] = mode
+        end
+        
+        if not input.getCursorVisible() then
+            if owner():getActiveWeapon() then
+                weapon = owner():getActiveWeapon():getClass()
+                if weapon == "weapon_physgun" then
+                    if activeInputs[KEY.E] and activeInputs[KEY.E] == 1 or activeInputs[KEY.E] == 0 then
+                        net.start("allowRotate")
+                        net.writeBool(activeInputs[KEY.E] == 1)
+                        net.send()
+                    end
+            
+                    if activeInputs[KEY.DELETE] and activeInputs[KEY.DELETE] == 1 then
+                        net.start("deleteProp")
+                        net.send()
+                    end
+                    
+                    if activeInputs[KEY.ALT] and activeInputs[KEY.ALT] == 1 or activeInputs[KEY.ALT] == 0 then
+                        net.start("copyProp")
+                        net.writeBool(activeInputs[KEY.ALT] == 1)
+                        net.send()
+                    end
+                elseif weapon == "remotecontroller" then
+                
+                end
+            end
+            if activeInputs[KEY.ENTER] and activeInputs[KEY.ENTER] == 1 and targetEnt then
+                local info = {
+                    owner = targetEnt:getOwner(),
+                    class = targetEnt:getClass(),
+                    model = targetEnt:getModel(),
+                    pos = targetEnt:getPos(),
+                    angle = targetEnt:getAngles(),
+                    mat = targetEnt:getMaterial(),
+                    color = targetEnt:getColor(),
+                    size = targetEnt:obbSize(),
+                }
+                printTable(info)
+            end
+            
+            if activeInputs[KEY.CTRL] and activeInputs[KEY.CTRL] > 0 and activeInputs["!" .. IN_KEY.ATTACK2] then
+                 t = owner():getEyeTrace()
+                if t.Entity and t.Entity:isValid() then
+                    if t.Entity != targetEnt then 
+                        targetEnt = t.Entity
+                        if not displayHolo then
+                            displayHolo = hologram.create(Vector(), Angle(), "models/maxofs2d/cube_tool.mdl")
+                            displayHolo:setColor(Color(255,255,255,150))
+                            displayHolo:setNoDraw(true)
+                        end
+                        displayHolo:setPos(targetEnt:obbCenterW())
+                        displayHolo:setAngles(targetEnt:getAngles())
+                        displayHolo:setScale(1.02 * targetEnt:obbSize()/ Vector(20.5, 20.5, 20.5))
+                        displayHolo:setParent(targetEnt)
+                        print(targetEnt)
+                    end
+                else
+                    targetEnt = nil
+                    displayHolo:setNoDraw(true)
+                end
+            end
+        end
+        
+        
+        
+        for key, _ in pairs(watchInKey) do
+            keyStr = "!" .. key
+            if activeInputs[keyStr] and activeInputs[keyStr] > 0 then
+                activeInputs[keyStr] = activeInputs[keyStr] + 1
+            else
+                activeInputs[keyStr] = nil
+            end
+        end
+        
+        
+    end)
+    
+
+    local lastAttackRelease = 0
+    hook.add("KeyPress", "getKeyPress", function(ply, key)
+        if watchInKey[key] then
+            keyStr = "!" .. key
+            if activeInputs[keyStr] == nil or activeInputs[keyStr] == 0 then
+                activeInputs[keyStr] = 1
+            end
+        end
+    end)
+    hook.add("KeyRelease", "getKeyPress", function(ply, key)
+        if watchInKey[key] then
+            keyStr = "!" .. key
+            if activeInputs[keyStr] and activeInputs[keyStr] > 0 then
+                activeInputs[keyStr] = 0
+            end
+        end
+    end)
+
+    hook.add("drawhud", "hudStuff",function() 
+        if targetEnt then
+            render.pushViewMatrix({
+                type = "3D",
+                --origin = Vector(),
+                --angles = player():getEyeAngles():rotateAroundAxis(Vector(0,0,1), rot),
+                --znear = 1,
+                --zfar = 100000
+            })
+            displayHolo:draw()
+            render.draw3DWireframeBox(targetEnt:getPos(), targetEnt:getAngles(), targetEnt:obbMins(), targetEnt:obbMaxs(), false)
+        end 
+    
+    end)
+
+end

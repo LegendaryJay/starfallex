@@ -1,0 +1,260 @@
+--@name War reactor
+--@author Lil'Tugboat
+--@server
+
+local topPartOffset = 25
+local template = {
+    {
+    mdl = "models/sprops/mechanics/bgears/bevel_60t_l.mdl",
+    pos = Vector(0, 0,143.968750- 78),
+    ang = Angle(0, 0, 0),
+    mat = "models/props_combine/metal_combinebridge001",
+    parent = chip(),
+    },
+    {
+    mdl = "models/sprops/geometry/fring_72.mdl",
+    pos = Vector(0, 0, 141.812500- 78),
+    ang = Angle(0, 0, 90),
+    mat = "models/props_combine/metal_combinebridge001",
+    parent = chip(),
+    },
+    {
+        mdl = "models/sprops/geometry/fdisc_72.mdl",
+        pos = Vector(0, 0, 141.062500- 78),
+        ang = Angle(0, 0, -90),
+        mat = "WTP/chrome_1",
+        color = Color(250,200,200),
+        parent = chip(),
+        scale = Vector(1,1,1) * 0.9,
+        isEffect = true,
+    },
+    {
+    mdl = "models/sprops/misc/tubes/size_72/tube_72x54.mdl",
+    pos = Vector(0, 0, 115.187500- 78),
+    ang = Angle(0, 0, 90),
+    mat = "models/props_combine/metal_combinebridge001",
+    parent = chip(),
+    },
+    {
+    mdl = "models/mechanics/gears2/vert_36t1.mdl",
+    pos = Vector(0, 0, 122.718750- 78),
+    ang = Angle(0, -95, 180),
+    mat = "",
+    parent = chip(),
+    },
+    {
+    mdl = "models/mechanics/gears2/vert_36t1.mdl",
+    pos = Vector(0, 0, 131- 78),
+    ang = Angle(0, 0, 0),
+    mat = "",
+    parent = chip(),
+    },
+    {
+    mdl = "models/mechanics/roboticslarge/claw_hub_8.mdl",
+    pos = Vector(0, 0, 152.093750- 78),
+    ang = Angle(0, 0, 0),
+    mat = "sprops/textures/sprops_rubber",
+    parent = chip(),
+    },
+    {
+    mdl = "models/sprops/misc/tubes/size_5/tube_96x6.mdl",
+    pos = Vector(0, 0, 127.718750- 78),
+    ang = Angle(0, 0, 90),
+    mat = "sprops/textures/sprops_metal4",
+    parent = chip(),
+    scale = Vector(1,0.5,1) * 0.94
+    },
+        {
+            mdl = "models/sprops/geometry/fdisc_96.mdl",
+            pos = Vector(0, 0, 120 - 78),
+            ang = Angle(0, 0, -90),
+            mat = "sprops/textures/sprops_rubber",
+            parent = chip(),
+            isEffect = true,
+            scale = Vector(1,1,1) * 0.98
+        },
+
+        {
+        mdl = "models/props_phx/construct/metal_plate_curve360.mdl",
+        pos = Vector(0, 0, 76.625000- 78),
+        ang = Angle(0, 0, 0),
+        mat = "",
+        color = Color(100,100,100),
+        parent = chip(),
+        scale = Vector(0.95,0.95,1)  
+    },
+    
+    ----------center -----------
+    
+        {
+        mdl = "models/sprops/misc/tubes_thin/size_4/t_tube_48x132.mdl",
+        pos = Vector(0, 0, 208.937500- 78),
+        ang = Angle(0, 0, -90),
+        mat = "models/props_lab/cornerunit_cloud",
+        parent = chip(),
+        scale = Vector(1,1,1)* 1.2
+    },
+    {
+        mdl = "models/sprops/misc/tubes/size_84/tube_84x144.mdl",
+        pos = Vector(0, 0, 211.500000- 78),
+        ang = Angle(0, 0, 90),
+        mat = "phoenix_storms/pack2/glass",
+        parent = chip(),
+        scale = Vector(1,1.5,1)
+    },
+    --------- Top -----------
+    {
+    mdl = "models/sprops/mechanics/bgears/bevel_60t_l.mdl",
+    pos = Vector(0,0, 200 + topPartOffset),
+    ang = Angle(0.000000, -179.708862, 180.000000),
+    mat = "models/props_combine/metal_combinebridge001",
+    parent = chip(),
+    },
+    
+    
+    
+    {
+    mdl = "models/sprops/geometry/fring_72.mdl",
+    pos = Vector(0,0, 202.000000 + topPartOffset),
+    ang = Angle(-0.000000, -179.708862, -89.999992),
+    mat = "models/props_combine/metal_combinebridge001",
+    parent = chip(),
+    },
+    {
+        mdl = "models/sprops/geometry/fdisc_72.mdl",
+        pos = Vector(0,0, 202.750000 + topPartOffset),
+        ang = Angle(-0.000000, -179.708862, 90.000015),
+        mat = "WTP/chrome_1",
+        parent = chip(),
+        color = Color(250,200,200),
+        scale = Vector(1,1,1) * 0.9,
+        isEffect = true,
+    },
+    {
+    mdl = "models/sprops/misc/tubes/size_72/tube_72x54.mdl",
+    pos = Vector(0,0, 228.625000 + topPartOffset),
+    ang = Angle(-0.000000, -179.708862, -89.999992),
+    mat = "models/props_combine/metal_combinebridge001",
+    parent = chip(),
+    },
+    {
+    mdl = "models/mechanics/gears2/vert_36t1.mdl",
+    pos = Vector(0,0, 221.093750 + topPartOffset),
+    ang = Angle(-0.000005, -84.710106, 0.005496),
+    mat = "",
+    parent = chip(),
+    },
+    {
+    mdl = "models/mechanics/gears2/vert_36t1.mdl",
+    pos = Vector(0,0, 212.812500 + topPartOffset),
+    ang = Angle(0.000000, -179.708862, 180.000000),
+    mat = "",
+    parent = chip(),
+    },
+    {
+    mdl = "models/mechanics/roboticslarge/claw_hub_8.mdl",
+    pos = Vector(0,0, 191.718750 + topPartOffset),
+    ang = Angle(0.000000, -179.708862, 180.000000),
+    mat = "sprops/textures/sprops_rubber",
+    parent = chip(),
+    },
+    {
+        mdl = "models/sprops/misc/tubes/size_5/tube_96x6.mdl",
+        pos = Vector(0,0, 216.093750 + topPartOffset),
+        ang = Angle(-0.000000, -179.708862, -89.999992),
+        mat = "sprops/textures/sprops_metal4",
+        parent = chip(),
+        scale = Vector(1,0.5,1) * 0.94
+    },
+    {
+        mdl = "models/sprops/geometry/fdisc_96.mdl",
+        pos = Vector(0,0, 223.812500 + topPartOffset),
+        ang = Angle(-0.000000, -179.708862, 90.000015),
+        mat = "sprops/textures/sprops_rubber",
+        parent = chip(),
+    
+    },
+    {
+        mdl = "models/props_phx/construct/metal_plate_curve360.mdl",
+        pos = Vector(0,0, 267.187500 + topPartOffset),
+        ang = Angle(0.000000, -179.708862, 180.000000),
+        mat = "",
+        parent = chip(),
+        color = Color(100,100,100),
+        scale = Vector(0.95,0.95,1)
+    },
+}
+
+
+
+
+
+scale = 1
+center = Vector()
+holos = {}
+asProps = false
+create = asProps and prop.create or hologram.create
+
+local function spawnHolo(value)
+    local pos = center + (value.pos or Vector()) * scale
+    local ang = value.ang
+    local parent = nil
+    if value.parent then
+        if type(value.parent) == "string" then
+            parent = holos[value.parent]
+        else
+            parent = value.parent
+        end
+        pos = parent:localToWorld(value.pos * scale)
+        ang = parent:localToWorldAngles(value.ang)
+    end
+    tempCreate = value.isEffect and hologram.create or create 
+    local holo = tempCreate(
+        pos,
+        ang,
+        value.mdl,
+        (value.scale or Vector(1,1,1)) * scale
+    )
+
+    if parent then
+        if asProps then
+            --constraint.weld(holo, parent)
+        else
+            holo:setParent(parent)
+        end
+    end
+    holo:setMaterial(value.mat or "")
+    holo:setColor(value.color or Color(255,255,255))
+    if value.size then
+        holo:setSize(value.size * scale)
+    end
+    if value.name then
+        holos[value.name] = holo
+    else
+        table.insert(holos, holo)
+    end
+end
+
+local function holoCoroutine()
+    while not table.isEmpty(template) do
+        if asProps and not prop.canSpawn() then 
+            coroutine.yield() 
+        else
+            local key, value = next(template)
+            spawnHolo(value)
+            table.remove(template, key)
+        end
+    end
+end
+
+local co = coroutine.create(holoCoroutine)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    else
+        hook.remove("think", "holoSpawner")
+    end
+
+end)
+

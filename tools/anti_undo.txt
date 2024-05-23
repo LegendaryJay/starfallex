@@ -1,0 +1,66 @@
+--@name anti undo
+--@author Lil'Tugboat
+--@model models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl
+--@server
+
+prop.setPropUndo(true)
+chip():setNocollideAll(true)
+local propCount = 1
+local props = {}
+local lastWarn = 0
+local warnDelay = 3
+hook.add("tick", "propWatcher", function() 
+    if not props[propCount] or not props[propCount]:isValid() then
+        if timer.curtime() - lastWarn > warnDelay then
+            lastWarn = timer.curtime()
+            print("Protecting stuff made before this point. Say '!off' or press RELOAD on chip to shutdown and '!save' to save")
+        end
+        for index = 1, propCount, 1 do
+            insideSin = 1 
+            if propCount != 1 then
+                percent = (index - 1)/(propCount -1) 
+                insideSin = (percent - 0.5) * 2                
+            end
+            
+            
+            
+            item = props[index]
+            if item == nil or not item:isValid() then
+                if not prop.canSpawn() then
+                    break
+                end
+                props[index] = prop.create(chip():obbCenterW() + Vector(math.sin(insideSin) * 20, 0, math.cos(insideSin) * 20), Angle(math.deg(math.asin(insideSin * 0.5)), 0,0), "models/healthvial.mdl", true)
+                props[index]:setSolid(false)
+            end
+        end
+    end
+
+
+end)
+
+function kill()
+    hook.remove("tick", "propWatcher")
+    print("Shutting down")
+    chip():remove()
+end
+
+hook.add("PlayerChat", "shutdown", function(ply, text)
+    if ply == owner() then
+        if text == "!off" then
+            kill()
+        elseif text == "!save" then
+            for _, item in pairs(props) do
+                item:remove()
+            end
+        end
+    end
+end)
+
+hook.add("KeyPress", "checkShutdown", function(ply, key) 
+    if ply == owner() and key == IN_KEY.RELOAD then
+        local lookEnt = owner():getEyeTrace().Entity
+        if lookEnt and lookEnt == chip() then
+            kill()
+        end
+    end     
+end)

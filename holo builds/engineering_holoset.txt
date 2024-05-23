@@ -1,0 +1,480 @@
+--@name engineering holoset
+--@author Lil'Tugboat
+--@server
+
+local ceilingZ = 192
+local template = {
+    {
+        name = "floorPlate",
+        mdl = "models/sprops/rectangles/size_10/rect_480x480x3.mdl",
+        pos = Vector(),
+        ang = Angle(0, 0, 0),
+        mat = "phoenix_storms/concrete3",
+        parent = chip()
+    },
+    {
+        name = "rightWall",
+        mdl = "models/sprops/rectangles/size_8/rect_192x480x3.mdl",
+        pos = Vector(0,240,96),
+        ang = Angle(0, 0, 90),
+        mat = "sprops/trans/misc/ls_m1",
+        parent = "floorPlate",
+    },
+    {
+        name = "leftWall",
+        mdl = "models/sprops/rectangles/size_8/rect_192x480x3.mdl",
+        pos = Vector(0,-240,96),
+        ang = Angle(0, 0, 90),
+        mat = "sprops/trans/misc/ls_m1",
+        parent = "floorPlate",
+    },
+    {
+        name = "ceiling",
+        mdl = "models/sprops/rectangles/size_10/rect_480x336x3.mdl",
+        pos = Vector(0, -72, ceilingZ),
+        ang = Angle(0,90,0),
+        mat = "phoenix_storms/concrete3",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/sprops/rectangles/size_7/rect_144x240x3.mdl",
+        pos = Vector(96, 168, ceilingZ + 0),
+        ang = Angle(0,0,0),
+        mat = "phoenix_storms/concrete3",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/sprops/rectangles/size_84/rect_84x144x3.mdl",
+        pos = Vector(-210, 168, ceilingZ + 0),
+        ang = Angle(0,90,0),
+        mat = "phoenix_storms/concrete3",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/sprops/rectangles/size_60/rect_60x192x3.mdl",
+        pos = Vector(-75, -142, 160),
+        ang = Angle(0, 90, 90),
+        mat = "sprops/trans/misc/ls_m1",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/sprops/rectangles/size_4_5/rect_42x132x3.mdl",
+        pos = Vector(-75, -67, 67.5),
+        ang = Angle(90, -90, -90),
+        mat = "sprops/trans/misc/ls_m1",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/sprops/rectangles/size_8/rect_192x192x3.mdl",
+        pos = Vector(-170, -47, 94),
+        ang = Angle(90, 90, 0),
+        mat = "sprops/trans/misc/ls_m1",
+        parent = "floorPlate",
+    },
+
+--[[
+    {
+        name = "ceilingByElevator", 
+        mdl = "models/sprops/rectangles/size_7/rect_144x240x3.mdl",
+        pos = Vector(0, 240, ceilingZ),
+        ang = Angle(0, 90, 0),
+        mat = "phoenix_storms/concrete3",
+        parent = "floorPlate"
+    },
+    {
+        name = "ceilingPowerGap", 
+        mdl = "models/sprops/rectangles/size_3/rect_24x144x3.mdl",
+        pos = Vector(100, 0, ceilingZ),
+        ang = Angle(0, 0, 0),
+        mat = "phoenix_storms/concrete3",
+        parent = "floorPlate"
+    },
+]]
+    {
+        name = "backWall",
+        mdl = "models/sprops/rectangles/size_8/rect_192x480x3.mdl",
+        pos = Vector(-240,0,96),
+        ang = Angle(0, 90, 90),
+        mat = "sprops/trans/misc/ls_m1",
+        parent = "floorPlate",
+    },
+    {
+        name = "elevator",
+        mdl = "models/props_lab/freightelevator.mdl",
+        pos = Vector(-155,-155,0),
+        ang = Angle(0, 0, 0),
+        mat = "",
+        isEffect = true,
+        parent = "floorPlate"
+    },
+    
+    // power
+    {
+        name = "generator",
+        mdl = "models/props_canal/generator02.mdl",
+        pos = Vector(-116,168,0),
+        ang = Angle(0, -90, 0),
+        mat = "",
+        parent = "floorPlate"
+    },
+    {
+        mdl = "models/sprops/rectangles/size_5/rect_48x132x3.mdl", -- stairs
+        pos = Vector(151,-32,17),
+        ang = Angle(43, 90, 0),
+        color = Color(70,70, 70),        
+        mat = "WTP/metal_4",
+        parent = "generator"
+    },
+    {
+        mdl = "models/sprops/rectangles/size_5/rect_48x48x3.mdl", -- stairs
+        pos = Vector(151,-103.5,62),
+        ang = Angle(0, 90, 0),
+        mat = "WTP/metal_4",
+        color = Color(70,70, 70),
+        parent = "generator"
+    },
+    
+    {
+        mdl = "models/props_lab/hev_case.mdl",
+        pos = Vector(-35, -100, 63),
+        ang = Angle(0, 0, 0),
+        mat = "",
+        parent = "generator"
+    },
+    {
+        name = "power",
+        mdl = "models/sprops/geometry/sphere_36.mdl",
+        pos = Vector(0,20,155),
+        ang = Angle(0, 0, 0),
+        mat = "models/shadertest/shader4",
+        parent = "generator"
+    },
+    {
+        name = "powerForceField",
+        mdl = "models/sprops/misc/tubes/size_4/tube_48x144.mdl",
+        pos = Vector(0,0,0),
+        ang = Angle(0, 0, 90),
+        mat = "Models/effects/comball_tape",
+        parent = "power"
+    },
+    {
+        name = "chimney",
+        mdl = "models/props_combine/breen_tube.mdl",
+        pos = Vector(0, 0, 48.5),
+        ang = Angle(0, 0, 0),
+        mat = "",
+        parent = "power"
+    },
+    {
+        name = "ChimneyLid",
+        mdl = "models/props_canal/canal_cap001.mdl",
+        pos = Vector(0,0,-0.5),
+        ang = Angle(90, 0, 180),
+        mat = "",
+        parent = "chimney"
+    },
+    {
+        mdl = "models/sprops/misc/sq_holes/superthin/fhole_144.mdl",
+        pos = Vector(0, 0, -14.75),
+        ang = Angle(0, 0, 90),
+        mat = "phoenix_storms/concrete3",
+        parent = "chimney",
+    },
+    
+    // work stations
+    {
+        name = "workspace",
+        mdl = "models/props_lab/generatorconsole.mdl",
+        pos = Vector(65, 55, 1),
+        ang = Angle(0, -97, 0),
+        mat = "",
+        parent = "floorPlate"
+    },
+    {
+        mdl = "models/props_lab/workspace003.mdl",
+        pos = Vector(100,-230,0),
+        ang = Angle(0, 90, 0),
+        mat = "",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/props_lab/cactus.mdl",
+        pos = Vector(-35,20,50),
+        ang = Angle(),
+        mat = "",
+        parent = "workspace",
+    },
+    {
+        name = "cornerWorkspace",
+        mdl = "models/props_lab/cornerunit2.mdl",
+        pos = Vector(90,210, 0),
+        ang = Angle(0, 0, 0),
+        mat = "",
+        parent = "floorPlate",
+    },
+    {
+        mdl = "models/props_lab/corkboard001.mdl",
+        pos = Vector(160,-15,2),
+        ang = Angle(-90, -90, 0),
+        mat = "",
+        isEffect = true,
+        parent = "rightWall",
+    },
+    {
+        mdl = "models/props_c17/chair_office01a.mdl",
+        pos = Vector(30,-60,0),
+        ang = Angle(0, -70, 0),
+        mat = "",
+        parent = "cornerWorkspace",
+    },
+--[[
+    {
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        pos = Vector(2653.441895, -3828.324463, -371.374847),
+        ang = Angle(-0.000003, -170.000000, 100.000000),
+        mat = ""
+    },
+]]
+--[[
+    {
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        pos = Vector(2628.820801, -3832.665283, -371.374847),
+        ang = Angle(-0.000003, -170.000000, 100.000000),
+        mat = ""
+    },
+]]
+--[[
+        {
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        pos = Vector(2656.449707, -3845.382080, -381.374847),
+        ang = Angle(-0.000003, -170.000000, 100.000000),
+        mat = ""
+    },
+]]
+--[[
+    {
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        pos = Vector(2631.828613, -3849.722900, -381.374847),
+        ang = Angle(-0.000003, -170.000000, 100.000000),
+        mat = ""
+    },
+]]
+
+--[[
+    {
+        mdl = "models/sprops/misc/sq_holes/superthin/fhole_144.mdl",
+        pos = Vector(-12601.437500, -8933.062500, -12530.750000),
+        ang = Angle(0.000000, 89.115601, -90.000000),
+        mat = "sprops/textures/gear_metal"
+    },
+]]
+
+
+    
+    
+--[[
+    {
+        mdl = "models/sprops/rectangles/size_8/rect_192x192x3.mdl",
+        pos = Vector(-12660.062500, -9112.375000, -12591.468750),
+        ang = Angle(0.000000, 0.000000, 90.000000),
+        mat = "sprops/trans/misc/ls_m1"
+    },
+]]
+
+--[[
+    {
+        mdl = "models/sprops/rectangles/size_3_5/rect_30x144x3.mdl",
+        pos = Vector(-12600.500000, -8847.468750, -12533.312500),
+        ang = Angle(0.000000, 0.000000, 0.000000),
+        mat = "phoenix_storms/concrete3"
+    },
+]]
+--[[
+    {
+        mdl = "models/sprops/rectangles/size_66/rect_66x240x3.mdl",
+        pos = Vector(-12696.000000, -8948.687500, -12530.656250),
+        ang = Angle(0.000000, 90.038452, 0.000000),
+        mat = "phoenix_storms/concrete3"
+    },
+    {
+        mdl = "models/sprops/rectangles/size_8/rect_192x192x3.mdl",
+        pos = Vector(-12658.531250, -9140.187500, -12587.000000),
+        ang = Angle(0.000000, 0.000000, 90.000000),
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    {
+        mdl = "models/sprops/rectangles_thin/size_3_5/rect_30x192x1_5.mdl",
+        pos = Vector(-12564.625000, -9127.562500, -12599.531250),
+        ang = Angle(89.994507, 179.335327, 180.000000),
+        mat = "sprops/trans/misc/ls_m1"
+    },
+
+    {
+        mdl = "models/sprops/rectangles/size_5/rect_48x48x3.mdl",
+        pos = Vector(-12704.656250, -9087.250000, -12624.250000),
+        ang = Angle(0.000000, -89.664917, 0.000000),
+        mat = ""
+    },
+]]
+    
+    
+    
+    
+--[[
+    {
+        mdl = "models/sprops/cylinders/size_2/cylinder_3x60.mdl",
+        pos = Vector(2642.635254, -3839.023682, -376.374847),
+        ang = Angle(60.000000, 100.000000, 0.000000),
+        mat = ""
+    },
+    {
+        mdl = "models/sprops/misc/pyramids/rsize_2/rpyr_24x6.mdl",
+        pos = Vector(2642.484863, -3838.170654, -375.874847),
+        ang = Angle(60.000004, 100.000000, -0.000001),
+        mat = ""
+    },
+    {
+        mdl = "models/sprops/misc/pyramids/rsize_2/rpyr_24x6.mdl",
+        pos = Vector(2642.785645, -3839.876709, -376.874847),
+        ang = Angle(60.000004, 100.000000, -180.000000),
+        mat = ""
+    },
+    {
+        mdl = "models/sprops/misc/pyramids/rsize_2/rpyr_24x6.mdl",
+        pos = Vector(2642.484863, -3838.170654, -375.874847),
+        ang = Angle(60.000004, 100.000000, -0.000001),
+        mat = ""
+    },
+    {
+        mdl = "models/sprops/misc/tubes/size_3/tube_36x6.mdl",
+        pos = Vector(2642.635254, -3839.023682, -376.374847),
+        ang = Angle(60.000004, 100.000000, 90.000000),
+        mat = ""
+    },
+    {
+        mdl = "models/sprops/misc/tubes/size_2/tube_24x6.mdl",
+        pos = Vector(2641.131348, -3830.494873, -371.374847),
+        ang = Angle(60.000004, 100.000000, 90.000000),
+        mat = ""
+    },
+    {
+        mdl = "models/sprops/misc/tubes/size_2/tube_24x6.mdl",
+        pos = Vector(2644.139160, -3847.552490, -381.374847),
+        ang = Angle(60.000004, 100.000000, 90.000000),
+        mat = ""
+    },
+
+]]
+--[[
+    {
+        mdl = "models/props_lab/handrail01_long_stairwell01.mdl",
+        pos = Vector(-11144.406250, -8395.312500, -12793.437500),
+        ang = Angle(0.032959, -7.014771, 0.000000),
+        mat = ""
+    },
+
+
+
+    {
+        mdl = "models/props_lab/powerbox01a.mdl",
+        pos = Vector(-12519.187500, -9300.343750, -12609.000000),
+        ang = Angle(0.000000, 91.538086, 0.000000),
+        mat = ""
+    },
+
+    
+    {
+        mdl = "models/props_c17/light_industrialbell01_on.mdl",
+        pos = Vector(-12341.062500, -8925.406250, -12533.593750),
+        ang = Angle(-0.027466, -35.200195, 0.021973),
+        mat = ""
+    },
+    {
+        mdl = "models/props_interiors/handrailcluster02a.mdl",
+        pos = Vector(-12640.312500, -9108.031250, -12617.218750),
+        ang = Angle(6.273193, 97.212524, 81.540527),
+        mat = ""
+    },
+]]
+--[[
+    {
+        mdl = "models/props_wasteland/panel_leverbase001a.mdl",
+        pos = Vector(-12724.562500, -8937.812500, -12579.718750),
+        ang = Angle(0.000000, 0.000000, 0.000000),
+        mat = ""
+    },
+]]
+--[[
+    {
+        mdl = "models/props_citizen_tech/steamengine001a.mdl",
+        pos = Vector(-12403.625000, -9108.562500, -12620.281250),
+        ang = Angle(89.994507, 37.628174, 180.000000),
+        mat = ""
+    },
+]]
+}
+
+scale = 1
+center = Vector()
+holos = {}
+asProps = false
+create = asProps and prop.create or hologram.create
+
+local function spawnHolo(value)
+    local pos = center + (value.pos or Vector()) * scale
+    local ang = value.ang
+    local parent = nil
+    if value.parent then
+        if type(value.parent) == "string" then
+            parent = holos[value.parent]
+        else
+            parent = value.parent
+        end
+        pos = parent:localToWorld(value.pos * scale)
+        ang = parent:localToWorldAngles(value.ang)
+    end
+    tempCreate = value.isEffect and hologram.create or create 
+    local holo = tempCreate(
+        pos,
+        ang,
+        value.mdl,
+        (value.scale or Vector(1,1,1)) * scale
+    )
+
+    if parent then
+        holo:setParent(parent)
+    end
+    holo:setMaterial(value.mat or "")
+    holo:setColor(value.color or Color(255,255,255))
+    if value.size then
+        holo:setSize(value.size * scale)
+    end
+    if value.name then
+        holos[value.name] = holo
+    else
+        table.insert(holos, holo)
+    end
+end
+
+local function holoCoroutine()
+    while not table.isEmpty(template) do
+        if asProps and not prop.canSpawn() then 
+            coroutine.yield() 
+        else
+            local key, value = next(template)
+            spawnHolo(value)
+            table.remove(template, key)
+        end
+    end
+end
+
+local co = coroutine.create(holoCoroutine)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    else
+        hook.remove("think", "holoSpawner")
+    end
+
+end)

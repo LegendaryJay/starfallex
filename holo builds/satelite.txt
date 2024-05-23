@@ -1,0 +1,149 @@
+--@name Satelite
+--@author Lil'Tugboat
+--@client
+
+local smallWheelDist = 20
+local solarSpread = 25
+local template = {
+    -- core
+    {
+        name = "core",
+        pos = Vector(0, 0, 0),
+        ang = Angle(60, 100, 0),
+        mdl = "models/sprops/cylinders/size_2/cylinder_3x60.mdl",
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    --center
+    {
+        name = "centerBulkTop",
+        pos = Vector(0, 0, 2),
+        ang = Angle(0, 0, 0),
+        mdl = "models/sprops/misc/pyramids/rsize_2/rpyr_24x6.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "core",
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    {
+        name = "centerBulkTop",
+        pos = Vector(0, 0, -2),
+        ang = Angle(0, 0, 180),
+        mdl = "models/sprops/misc/pyramids/rsize_2/rpyr_24x6.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "core",
+        mat = "sprops/trans/misc/ls_m1"
+    },    
+    {
+        name = "centerBulkTop",
+        pos = Vector(0, 0, 2),
+        ang = Angle(0, 0, 0),
+        mdl = "models/sprops/misc/pyramids/rsize_2/rpyr_24x6.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "core",
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    {
+        name = "centerRing",
+        pos = Vector(0, 0, 0),
+        ang = Angle(0, 0, 90),
+        mdl = "models/sprops/misc/tubes/size_3/tube_36x6.mdl",
+        parent = "core",
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    -- top
+    {
+        name = "topRing",
+        pos = Vector(0, 0, smallWheelDist),
+        ang = Angle(0, 0, 90),
+        mdl = "models/sprops/misc/tubes/size_2/tube_24x6.mdl",
+        parent = "core",
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    {
+        name = "btmSolarA",
+        pos = Vector(0, 0, solarSpread),
+        ang = Angle(90, 50, 0),
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "topRing",
+        color    =    Color(45, 76, 255, 255),
+        mat    =    "models/props/de_inferno/tileroof01",
+    },    
+    {
+        name = "btmSolarB",
+        pos = Vector(0, 0, -solarSpread),
+        ang = Angle(90, 50, 0),
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "topRing",
+        color    =    Color(45, 76, 255, 255),
+        mat    =    "models/props/de_inferno/tileroof01",
+    },
+    
+    --bottom
+    {
+        name = "btmRing",
+        pos = Vector(0, 0, -smallWheelDist),
+        ang = Angle(0, 0, 90),
+        mdl = "models/sprops/misc/tubes/size_2/tube_24x6.mdl",
+        parent = "core",
+        mat = "sprops/trans/misc/ls_m1"
+    },
+    
+    {
+        name = "btmSolarA",
+        pos = Vector(0, 0, solarSpread),
+        ang = Angle(90, 50, 0),
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "btmRing",
+        color    =    Color(45, 76, 255, 255),
+        mat    =    "models/props/de_inferno/tileroof01",
+    },    
+    {
+        name = "btmSolarB",
+        pos = Vector(0, 0, -solarSpread),
+        ang = Angle(90, 50, 0),
+        mdl = "models/sprops/rectangles_superthin/size_2/rect_12x18.mdl",
+        scale = Vector(1,1,1) * 1,
+        parent = "btmRing",
+        color    =    Color(45, 76, 255, 255),
+        mat    =    "models/props/de_inferno/tileroof01",
+    },
+
+    
+   
+
+}
+    center = chip():getPos() + Vector(0,0,100)
+    scale = 1
+    holos = {}
+    for _, value in ipairs(template) do
+        local pos = center + (value.pos or Vector()) * scale
+        local ang = value.ang
+        local parent = nil
+        if value.parent then
+            if type(value.parent) == "string" then
+                parent = holos[value.parent]
+            else
+                parent = value.parent
+            end
+            pos = parent:localToWorld(value.pos * scale)
+            ang = parent:localToWorldAngles(value.ang)
+        end
+        local holo = hologram.create(
+            pos, 
+            ang, 
+            value.mdl, 
+            (value.scale or Vector(1,1,1)) * scale
+        )
+        
+        if parent then
+            holo:setParent(parent)
+        end
+        holo:setMaterial(value.mat or "")
+        holo:setColor(value.color or Color(255,255,255))
+        if value.size then
+            holo:setSize(value.size * scale)
+        end
+        holos[value.name] = holo
+    end

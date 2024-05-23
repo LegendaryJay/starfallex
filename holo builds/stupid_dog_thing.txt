@@ -1,0 +1,134 @@
+--@name Stupid dog thing
+--@author Lil'Tugboat
+--@server
+
+local template = {
+    {
+        name = "body",
+        mdl = "models/props_c17/suitcase001a.mdl",
+        pos = chip():getPos() + Vector(0,0,50),
+        ang = Angle(0, 0, 90),
+        mat = "",
+    },
+    {
+        name = "head",
+        mdl = "models/gibs/hgibs.mdl",
+        pos = Vector(17,17,0),
+        ang = Angle(0, 0, -90),
+        mat = "",
+        parent = "body",
+    },
+    {
+        mdl = "models/gibs/hgibs_spine.mdl",
+        pos = Vector(-1, 0, -8),
+        ang = Angle(0, -90, -30),
+        mat = "",
+        parent = "head",
+    },    
+    {
+        mdl = "models/gibs/hgibs_spine.mdl",
+        pos = Vector(14, -10, 5),
+        ang = Angle(90, 0, 90),
+        mat = "",
+        parent = "body",
+    },    
+    {
+        mdl = "models/gibs/hgibs_spine.mdl",
+        pos = Vector(-14, -10, 5),
+        ang = Angle(90, 0, 90),
+        mat = "",
+        parent = "body",
+    },    
+    {
+        mdl = "models/gibs/hgibs_spine.mdl",
+        pos = Vector(14, -10, -5),
+        ang = Angle(90, 0, 90),
+        mat = "",
+        parent = "body",
+    },    
+    {
+        mdl = "models/gibs/hgibs_spine.mdl",
+        pos = Vector(-14, -10, -5),
+        ang = Angle(90, 0, 90),
+        mat = "",
+        parent = "body",
+    },
+
+    {
+        mdl = "models/gibs/hgibs_rib.mdl",
+        pos = Vector(2954.843750, -385.968750, 0.687500),
+        ang = Angle(-15.232544, -97.031250, -3.059692),
+        mat = ""
+    },
+
+}
+
+
+scale = 1
+center = Vector()
+holos = {}
+asProps = true
+create = asProps and prop.create or hologram.create
+
+local function spawnHolo(value)
+    local pos = center + (value.pos or Vector()) * scale
+    local ang = value.ang
+    local parent = nil
+    if value.parent then
+        if type(value.parent) == "string" then
+            parent = holos[value.parent]
+        else
+            parent = value.parent
+        end
+        pos = parent:localToWorld(value.pos * scale)
+        ang = parent:localToWorldAngles(value.ang)
+    end
+    tempCreate = value.isEffect and hologram.create or create 
+    local holo = tempCreate(
+        pos,
+        ang,
+        value.mdl,
+        (value.scale or Vector(1,1,1)) * scale
+    )
+
+    if parent then
+        if asProps then
+            --constraint.weld(holo, parent)
+        else
+            holo:setParent(parent)
+        end
+    end
+    holo:setMaterial(value.mat or "")
+    holo:setColor(value.color or Color(255,255,255))
+    if value.size then
+        holo:setSize(value.size * scale)
+    end
+    if value.name then
+        holos[value.name] = holo
+    else
+        table.insert(holos, holo)
+    end
+end
+
+local function holoCoroutine()
+    while not table.isEmpty(template) do
+        if asProps and not prop.canSpawn() then 
+            coroutine.yield() 
+        else
+            local key, value = next(template)
+            spawnHolo(value)
+            table.remove(template, key)
+        end
+    end
+end
+
+local co = coroutine.create(holoCoroutine)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        coroutine.resume(co)
+    else
+        hook.remove("think", "holoSpawner")
+    end
+
+end)

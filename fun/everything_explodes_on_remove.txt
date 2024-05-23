@@ -1,0 +1,17 @@
+--@name everything explodes on remove
+--@authored Lil'Tugboat
+--@server
+
+hook.add("EntityRemoved", "stupid", function(ent)
+    if ent:getModel() and ent:getModel() != ""  and ent:getModel() != "models/props_junk/gascan001a.mdl"  then 
+        coroutine.wrap(function()
+            pos = ent:getPos()
+            while not prop.canSpawn() do
+                coroutine.yield()
+            end
+            --print("BANG!")
+            local newProp = prop.create( pos, Angle(), "models/props_junk/gascan001a.mdl")
+            newProp:breakEnt()
+        end)()
+    end
+end)

@@ -1,0 +1,96 @@
+--@name Digital Clock
+--@author Lil'Tugboat
+--@shared
+
+if SERVER then
+    local scale = 1
+    local timeZoneOffset = -7 -- offset from GMT
+    local isMilitary = false
+    local hasSeconds = false
+    
+    -----------
+    
+    --@include libs/7_seg_display.txt
+    Display = require("libs/7_seg_display.txt")
+    
+    
+    local center = chip():getPos() + Vector(0,0,100) * scale
+
+    propBase = prop.create(center, Angle(0,90,0), "models/sprops/geometry/superthin/discs/fdisc_60.mdl", true)
+    propBase:setColor(Color(0,0,0,0))
+    
+
+    clockDigits = {}
+    
+    center = chip():getPos() + Vector(0,0,100)
+    segmentSpace = 50
+    gap = 15
+    
+    totalDist = 4 * segmentSpace + gap
+    if hasSeconds then
+        totalDist = totalDist + 2 * segmentSpace + gap
+    end
+    
+    position = totalDist * 0.5 - segmentSpace * 0.5
+    
+    digitIndex = 1
+    
+    for i = 1, 8 do
+        if i % 3 != 0 then
+            clockDigits[digitIndex] = Display:new(center + Vector( 0, position, 0), Angle(0,0,0), 0.5,  "", Color(0,0,0,255),"", Color(0,0,0,0), propBase)
+            clockDigits[digitIndex]:spawn()
+            clockDigits[digitIndex]:draw(8)
+            
+            position = position - segmentSpace
+            digitIndex = digitIndex + 1
+        else
+            if not hasSeconds and i == 6 then
+                break
+            end
+            position = position - gap
+        end       
+    end
+    local lastTime = 0
+    hook.add("think", "setTime", function()
+        local time = os.time()
+        if time != lastTime then
+            lastTime = time
+
+            if hasSeconds then 
+                local seconds = time % 60
+                secondsOnes = seconds % 10
+                secondsTens = math.floor(seconds/10) % 10
+                
+                clockDigits[6]:draw( secondsOnes)
+                clockDigits[5]:draw( secondsTens)
+            end
+
+         
+            local minutes = math.floor((time % 3600) / 60)
+            minuteOnes = minutes % 10
+            minuteTens = math.floor(minutes/10) % 10
+            
+            clockDigits[4]:draw( minuteOnes)
+            clockDigits[3]:draw( minuteTens)
+   
+            local hourFormat = 12
+            if isMilitary then
+                hourFormat = 24
+            end
+                
+    
+            local hours = (math.floor((time % 86400) / 3600) + 24 + timeZoneOffset ) % hourFormat
+            local hourOnes = hours % 10
+            local hourTens = math.floor(hours / 10) % 10
+    
+            -- Update hours digits
+            clockDigits[2]:draw(hourOnes)
+            clockDigits[1]:draw(hourTens)
+
+        end
+    end)
+
+else
+    
+
+end

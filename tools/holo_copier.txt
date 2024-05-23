@@ -1,0 +1,35 @@
+--@name Holo Copier
+--@author Lil'Tugboat
+--@client
+
+local props = find.all(function(ent) return ent:getOwner() == owner() end)
+
+local function getPropInfo()
+    local template = {}
+    for key, prp in pairs(props) do
+        local info = {
+            mdl = prp:getModel(),
+            pos = chip():worldToLocal(prp:getPos()),
+            ang = prp:getAngles(),
+            mat = prp:getMaterial()
+        }
+        table.insert(template, info)
+    end
+
+    local result = "local template = {\n"
+    for _, info in pairs(template) do
+        result = result .. "\t{\n"
+        result = result .. string.format('\t\tmdl = "%s",\n', info.mdl)
+        result = result .. string.format('\t\tpos = Vector(%f, %f, %f),\n', info.pos.x, info.pos.y, info.pos.z)
+        result = result .. string.format('\t\tang = Angle(%f, %f, %f),\n', info.ang.p, info.ang.y, info.ang.r)
+        result = result .. string.format('\t\tmat = "%s",\n', info.mat)
+        result = result .. string.format('\t\tparent = chip(),\n')
+        result = result .. "\t},\n"
+    end
+    result = result .. "}\n"
+
+    return result
+end
+
+local propInfoString = getPropInfo()
+file.write("scene_output.txt", propInfoString)

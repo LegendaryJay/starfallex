@@ -1,0 +1,40 @@
+--@name Everything Explodes
+--@authored Lil'Tugboat
+--@shared
+
+listenedTo = {}
+
+function explodeIfFast(listener, ent)
+    
+        if (listener.OurOldVelocity:getLength() > 600) then 
+            if ent and ent:isValid() then
+                ent:remove()
+            end
+            coroutine.wrap(function()
+                while not prop.canSpawn() do
+                    coroutine.yield()
+                end
+                local newProp = prop.create(listener.HitPos, Angle(), "models/props_junk/gascan001a.mdl")
+                newProp:breakEnt()
+            end)()
+        else
+            if listenedTo[ent] then
+                ent:removeCollisionListener()
+                listenedTo[ent] = false
+            end
+        end
+end
+
+hook.add("GravGunOnPickedUp", "thing", function(ply, ent) 
+    if listenedTo[ent] and ent:getOwner() == owner()  then
+        ent:removeCollisionListener()
+        listenedTo[ent] = false
+    end
+end)
+
+hook.add("GravGunOnDropped", "thing", function(ply, ent)
+    if not listenedTo[ent] and ent:getOwner() == owner() then
+        ent:addCollisionListener(function(listener) explodeIfFast(listener, ent) end)
+        listenedTo[ent] = true
+    end
+end)

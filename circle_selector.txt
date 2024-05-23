@@ -1,0 +1,74 @@
+--@name Circle Selector
+--@author Lil'Tugboat
+--@client
+
+holoDisplay = hologram.create(Vector(), Angle(), "models/Gibs/HGIBS.mdl")
+if owner() == player() then
+    
+    selectionDist = 100
+
+
+
+    enableHud(nil, true)
+    local viewAng = nil
+    
+    holo = hologram.create(Vector(), Angle(), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl")
+    holo:setNoDraw(true)
+    hook.add("drawHud", "selector", function() 
+        render.pushViewMatrix({
+            type = "3D",
+            origin = Vector(),
+            angles = viewAng and (owner():getEyeAngles() - viewAng) or Angle()
+            --angles = player():getEyeAngles():rotateAroundAxis(Vector(0,0,1), rot),
+            --znear = 1,
+            --zfar = 100000
+        })
+        holo:setPos(Vector(selectionDist,0,0))
+        holo:draw()
+        render.popViewMatrix()
+    end)
+
+    mode = -1
+    
+    hook.add("keyRelease", "a", function(ply, key) 
+        if ply == owner() and key == IN_KEY.ATTACK2 and mode > 0 then 
+            mode = 0 
+        end
+    end)
+    
+    hook.add("KeyPress", "b", function(ply, key) 
+        if ply == owner() and key == IN_KEY.ATTACK2 and mode < 1 then 
+            mode = 1 
+        end
+    end)
+    
+    hook.add("think", "c", function()
+        if mode == 1 then
+            print("click")
+            viewAng = owner():getEyeAngles()
+            elseif mode > 1 then
+                angDiff = owner():getEyeAngles() - viewAng
+                vec2 = Vector(
+                    math.normalizeAngle( angDiff[1] ),
+                    math.normalizeAngle( angDiff[2] ),
+                    0
+                )
+                vec2Norm = vec2:getNormalized()
+                atan = math.acos(vec2Norm[1])
+                print(tostring(vec2) .. " - " .. tostring(math.floor(math.deg(atan))) .. " - " .. tostring(math.floor(vec2:getLength() ))) 
+                
+            elseif mode == 0 then
+
+                viewAng = nil
+            end
+        
+        if mode > 0 then 
+            mode = mode + 1 
+        elseif mode == 0 then
+            print("unclick")
+            mode = -1
+        end
+    end)
+
+
+end
