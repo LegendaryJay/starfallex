@@ -95,18 +95,37 @@ if SERVER then
         doCopy = net.readBool()
     end)
     
+    net.receive("pasteMat", function()
+        mat = net.readString()
+        ent = entity(net.readFloat())
+        
+        if ent and ent:isValid() then
+            if ent:getMaterial() != mat then
+                if mat == "" then
+                    print("Material Cleared")
+                else
+                    print("Material Pasted")
+                end
+                ent:setMaterial(mat)
+            end
+           
+        end 
+    end)
+    
 elseif player() == owner() then
+    --@include libs/circle_selector.txt
+    Selector = require("libs/circle_selector.txt")
+    
     enableHud(nil, true)
     local targetEnt = nil
     
-    local wasUsing = false
-    local wasDeleting = false
-    local wasCopying = false
+    local copyMat = ""
     
     local activeInputs = {}
     local watchInputs = {
         KEY.E,
         KEY.DELETE,
+        KEY.R,
         KEY.ALT,
         KEY.ENTER,
         KEY.CTRL
@@ -115,6 +134,22 @@ elseif player() == owner() then
         [IN_KEY.ATTACK] = true,
         [IN_KEY.ATTACK2] = true
     }
+    
+    function matVisualizer(index, holo, selection)
+        call = pcall(
+            function(mat) 
+                holo:setMaterial(mat)
+            end, 
+            selection
+        )
+        if not call then
+            holo:setColor(Color(255,255,255,20))
+            selection = ""
+        end
+
+    end
+    
+    local selector
 
     hook.add("think", "watchPhygunStuff", function()
         for _, key in pairs(watchInputs) do
@@ -154,7 +189,62 @@ elseif player() == owner() then
                         net.send()
                     end
                 elseif weapon == "remotecontroller" then
-                
+                    if activeInputs["!" .. IN_KEY.ATTACK2] then
+                        if activeInputs["!" .. IN_KEY.ATTACK2] == 1 then
+                            ent = player():getEyeTrace().Entity
+                            local materialList = {}
+                            if ent then 
+                                materialList = ent:getMaterials()
+                                materialList[#materialList + 1] = ent:getMaterial() != "" and ent:getMaterial() or nil
+                            end
+                            selector = Selector:new(
+                                materialList, 
+                                matVisualizer,
+                                function(key, value) 
+                                    if not value then
+                                        value = ""
+                                    end
+                                    
+                                    if (copyMat != value) then
+                                        if copyMat == "" then
+                                            print("Cleared copied material")
+                                        else
+                                            print("Copied Material: " .. value)
+                                        end
+                                    end
+                                    copyMat = value
+                                end
+                            )
+                        elseif activeInputs["!" .. IN_KEY.ATTACK2] > 1 then
+                            if selector then
+                                selector:update()
+                            end
+                        elseif activeInputs["!" .. IN_KEY.ATTACK2] == 0 then
+                            selector:close()
+                        end
+                    end
+                    if activeInputs["!" .. IN_KEY.ATTACK] then
+                        if activeInputs["!" .. IN_KEY.ATTACK] == 1 then
+                            ent = player():getEyeTrace().Entity
+                            if ent and ent:isValid() then
+                                net.start("pasteMat")
+                                net.writeString(copyMat)
+                                net.writeFloat(ent:entIndex())
+                                net.send()
+                            end
+                        end
+                    end
+                    if activeInputs[KEY.R] then
+                        if activeInputs[KEY.R] == 1 then
+                            ent = player():getEyeTrace().Entity
+                            if ent and ent:isValid() then
+                                net.start("pasteMat")
+                                net.writeString("")
+                                net.writeFloat(ent:entIndex())
+                                net.send()
+                            end
+                        end
+                    end
                 end
             end
             if activeInputs[KEY.ENTER] and activeInputs[KEY.ENTER] == 1 and targetEnt then

@@ -88,11 +88,11 @@ local template = {
     
         {
         mdl = "models/sprops/misc/tubes_thin/size_4/t_tube_48x132.mdl",
-        pos = Vector(0, 0, 208.937500- 78),
+        pos = Vector(0, 0,150),
         ang = Angle(0, 0, -90),
         mat = "models/props_lab/cornerunit_cloud",
         parent = chip(),
-        scale = Vector(1,1,1)* 1.2
+        scale = Vector(1,1.3,1)* 1.2
     },
     {
         mdl = "models/sprops/misc/tubes/size_84/tube_84x144.mdl",

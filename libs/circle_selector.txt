@@ -25,12 +25,12 @@ function CircleSelector:initialize(options, visualizer, callback)
     return self
 end
 
-function CircleSelector:applyHoverEffect(hologram)
-    hologram:setScale(Vector(1, 1, 1) * 1.5 * self.scaleFactor)
+function CircleSelector:applyHoverEffect(holo)
+    holo:setScale(Vector(1, 1, 1) * 1.5 * self.scaleFactor)
 end
 
-function CircleSelector:removeHoverEffect(hologram)
-    hologram:setScale(Vector(1, 1, 1) * self.scaleFactor)
+function CircleSelector:removeHoverEffect(holo)
+    holo:setScale(Vector(1, 1, 1) * self.scaleFactor)
 end
 
 function CircleSelector:initializeSelections()
@@ -40,25 +40,26 @@ function CircleSelector:initializeSelections()
         local anglePercentage = (index - 1) / #self.options
 
         local xyAngle = math.rad(90 + anglePercentage * 360)
-        local hologram = hologram.create(
+        local holo = hologram.create(
             Vector(
                 self.selectionDistance,
                 math.cos(xyAngle) * self.radialDistance,
                 math.sin(xyAngle) * self.radialDistance
             ),
-            Angle(),
+            Angle(0,0,360 * anglePercentage),
             self.model
         )
         if index == 1 then
-            local size = hologram:obbSize()
+            local size = holo:obbSize()
             local diagonalSize = math.sqrt(size[2]^2 + size[3]^2)
             local maxScale = 2 * self.radialDistance * 3.1415 / #self.options
             self.scaleFactor = math.min(maxScale / diagonalSize, 1)
         end
-        hologram:setScale(Vector(1, 1, 1) * self.scaleFactor)
-        self.visualizer(index, hologram, self.options[index])
-        hologram:suppressEngineLighting(true)
-        self.selectionHolograms[index] = hologram
+        holo:setScale(Vector(1, 1, 1) * self.scaleFactor)
+        self.visualizer(index, holo, self.options[index])
+        holo:suppressEngineLighting(true)
+        holo:setNoDraw(true)
+        self.selectionHolograms[index] = holo
     end
 
     hook.add("drawHud", "circleSelector", function()
@@ -67,7 +68,7 @@ function CircleSelector:initializeSelections()
 end
 
 function CircleSelector:update()
-    local viewAngle = owner():getEyeAngles() - self.initialAngle
+    local viewAngle = player():getEyeAngles() - self.initialAngle
     local directionVector = Vector(
         math.normalizeAngle(viewAngle[2]),
         math.normalizeAngle(viewAngle[1]),
@@ -104,18 +105,18 @@ function CircleSelector:render()
     render.pushViewMatrix({
         type = "3D",
         origin = Vector(),
-        angles = self.initialAngle and (owner():getEyeAngles() - self.initialAngle) or Angle()
+        angles = self.initialAngle and (player():getEyeAngles() - self.initialAngle) or Angle()
     })
-    for _, hologram in ipairs(self.selectionHolograms) do
-        hologram:draw()
+    for _, holo in ipairs(self.selectionHolograms) do
+        holo:draw()
     end
     render.popViewMatrix()
 end
 
 function CircleSelector:remove()
-    for _, hologram in ipairs(self.selectionHolograms) do
-        if hologram and hologram:isValid() then
-            hologram:remove()
+    for _, holo in ipairs(self.selectionHolograms) do
+        if holo and holo:isValid() then
+            holo:remove()
         end
     end
     hook.remove("drawHud", "circleSelector")
@@ -130,7 +131,7 @@ function CircleSelector:close()
 end
 
 function CircleSelector:getIntersection()
-    local eyeAngles = owner():getEyeAngles() - self.initialAngle
+    local eyeAngles = player():getEyeAngles() - self.initialAngle
     local direction = eyeAngles:getForward()
     
     local planePoint = Vector(self.selectionDistance, 0, 0)
@@ -148,7 +149,7 @@ end
 --[[
 
 -- Example usage
-if owner() == player() then
+if player() == player() then
     enableHud(nil, true)
     local itemCount = 2
     local selectionAngleSpan = 360 / itemCount
@@ -160,20 +161,20 @@ if owner() == player() then
 
     local circleSelector
 
-    local function visualizer(index, hologram, option)
-        hologram:setColor(option)
+    local function visualizer(index, holo, option)
+        holo:setColor(option)
     end
 
     local mode = -1
 
     hook.add("keyRelease", "releaseHandler", function(ply, key)
-        if ply == owner() and key == IN_KEY.ATTACK2 and mode > 0 then
+        if ply == player() and key == IN_KEY.ATTACK2 and mode > 0 then
             mode = 0
         end
     end)
 
     hook.add("KeyPress", "pressHandler", function(ply, key)
-        if ply == owner() and key == IN_KEY.ATTACK2 and mode < 1 and not input.getCursorVisible() then
+        if ply == player() and key == IN_KEY.ATTACK2 and mode < 1 and not input.getCursorVisible() then
             mode = 1
         end
     end)

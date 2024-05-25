@@ -328,33 +328,36 @@ if SERVER then
     
     
     net.receive("command", function (len, ply)
-        if ply != me then return end
-
-        local commandString = net.readString()
-        local command, args = parseCommand(commandString)
-        
-        
-        if command and commands[command] then
-           
-            commands[command](args)
-        else
-            print("Invalid command received: ", command)
+        if ply == me then 
+    
+            local commandString = net.readString()
+            local command, args = parseCommand(commandString)
+            
+            
+            if command and commands[command] then
+               
+                commands[command](args)
+            else
+                print("Invalid command received: ", command)
+            end
         end
     end)
     
 
 else 
     hook.add("PlayerChat", "chatCommands", function (ply, message, team, dead)
-        if ply ~= me then return end
+        if ply == me then
         
-        local command = string.match(message, "^%!(%w+)")        
-         
-        if command then
-            net.start("command")
-                net.writeString(message)
-            net.send()
+            local command = string.match(message, "^%!(%w+)")        
+             
+            if command then
+                net.start("command")
+                    net.writeString(message)
+                net.send()
+                return true
+            end
+            
         end
-        return true
     end)
 end    
     
