@@ -5,7 +5,7 @@
 
 prop.setPropUndo(true)
 chip():setNocollideAll(true)
-local propCount = 1
+local propCount = 2
 local props = {}
 local lastWarn = 0
 local warnDelay = 3
@@ -13,7 +13,7 @@ hook.add("tick", "propWatcher", function()
     if not props[propCount] or not props[propCount]:isValid() then
         if timer.curtime() - lastWarn > warnDelay then
             lastWarn = timer.curtime()
-            print("Protecting stuff made before this point. Say '!off' or press RELOAD on chip to shutdown and '!save' to save")
+            print("Protecting stuff made before this point. Say '!off' or press the RELOAD key on chip to shutdown and '!save' to save")
         end
         for index = 1, propCount, 1 do
             insideSin = 1 

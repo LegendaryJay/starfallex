@@ -1,0 +1,59 @@
+--@name Everything Explodes
+--@author Lil'Tugboat
+--@server
+
+function x(ent)
+    ent:removeCollisionListener()
+end
+
+function explode(ent, pos)
+    if pcall(function(ent) ent:remove() end, ent) then
+        coroutine.wrap(function()
+            while not prop.canSpawn() do
+                coroutine.yield()
+            end
+            local newProp = prop.create(pos, Angle(), "models/props_junk/gascan001a.mdl")
+            newProp:breakEnt()
+        end)()
+    end
+end
+
+
+function explodeIfFast(listener, ent)
+    if (listener.OurOldVelocity:getLength() > 600) then 
+       explode(ent, listener.HitPos)
+    else
+        pcall(x, ent)
+    end
+end
+function o(ent)
+    ent:addCollisionListener(function(listener) explodeIfFast(listener, ent) end)
+end
+hook.add("GravGunOnPickedUp", "thing", function(ply, ent) 
+    pcall(x, ent)
+end)
+
+hook.add("GravGunOnDropped", "thing", function(ply, ent)
+    if ent:getOwner() == owner() then
+        pcall(o, ent)
+    end
+    
+end)
+
+hook.add("EntityTakeDamage", "thing", function(target, attacker, inflictor, amount, type, position, force)
+    if target:getOwner() == owner() then
+        if type != 134217792 and type != 268435464 then -- if it isnt explosive dmg or fire then
+            explode(target, target:obbCenterW())
+        else
+            if not target:isPlayer() then
+                target:ignite(5, 2)
+                timer.create("ignite " .. target:entIndex(), 2, 1, function() 
+                    if target and target:isValid() then
+                        explode(target, target:obbCenterW())
+                    end
+                end)
+            end
+        end
+    end
+    
+end)

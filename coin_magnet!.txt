@@ -9,7 +9,7 @@ local posOffset
 local lastTime = 0
 
 local function findCoins()
-    return find.all(function(ent) return ent:getClass() == "prop_glados_core" and not ent:getPos():isZero() end)
+    return find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") and not ent:getPos():isZero() end)
 end
 
 local function interactWithCoins()

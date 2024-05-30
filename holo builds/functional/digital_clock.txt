@@ -3,55 +3,68 @@
 --@shared
 
 if SERVER then
-    local scale = 1
-    local timeZoneOffset = -7 -- offset from GMT
-    local isMilitary = false
-    local hasSeconds = false
+    local scale = 50
+    local timeZoneOffset = 2 -- offset from GMT
+    local isMilitary = true
+    local hasSeconds = true
     
     -----------
-    
+    local mat = chip():getMaterial()
+    local clr = chip():getColor()
     --@include libs/7_seg_display.txt
     Display = require("libs/7_seg_display.txt")
     
     
-    local center = chip():getPos() + Vector(0,0,100) * scale
-
-    propBase = prop.create(center, Angle(0,90,0), "models/sprops/geometry/superthin/discs/fdisc_60.mdl", true)
-    propBase:setColor(Color(0,0,0,0))
-    
+    local center = chip():getPos()
 
     clockDigits = {}
-    
-    center = chip():getPos() + Vector(0,0,100)
     segmentSpace = 50
-    gap = 15
+    gap = 15 
+    
+    segmentSpace = segmentSpace * scale
     
     totalDist = 4 * segmentSpace + gap
+    gap = gap * scale
     if hasSeconds then
         totalDist = totalDist + 2 * segmentSpace + gap
     end
     
-    position = totalDist * 0.5 - segmentSpace * 0.5
+    position = segmentSpace * 0.5 - totalDist * 0.5   
     
     digitIndex = 1
     
     for i = 1, 8 do
         if i % 3 != 0 then
-            clockDigits[digitIndex] = Display:new(center + Vector( 0, position, 0), Angle(0,0,0), 0.5,  "", Color(0,0,0,255),"", Color(0,0,0,0), propBase)
+            clockDigits[digitIndex] = Display:new(
+                chip():localToWorld(Vector( 
+                    0, 
+                    position, 
+                    0
+                )), 
+                chip():getAngles(), 
+                0.5 * scale,  
+                mat, 
+                clr,
+                "", 
+                Color(0,0,0,0), 
+                chip())
             clockDigits[digitIndex]:spawn()
             clockDigits[digitIndex]:draw(8)
             
-            position = position - segmentSpace
+            position = position + segmentSpace
             digitIndex = digitIndex + 1
         else
             if not hasSeconds and i == 6 then
                 break
             end
-            position = position - gap
+            position = position + gap
         end       
     end
     local lastTime = 0
     hook.add("think", "setTime", function()
+        if mat != chip():getMaterial() then
+            restart()
+        end
         local time = os.time()
         if time != lastTime then
             lastTime = time

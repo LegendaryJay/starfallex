@@ -1,0 +1,76 @@
+--@name Damage Display
+--@shared
+
+local backPos = nil
+local lastDamage = nil
+if SERVER then
+    hook.add("PlayerHurt", "displayDamage", function(ply, attacker, newHealth, damageTaken)
+        if ply == owner() then
+            net.start("dmg")
+            net.writeFloat(damageTaken)
+            net.sendPVS(owner():getPos() + Vector(0, 0, 75), true)
+            owner():setHealth(1000)
+            if not backAngle then backPos = owner():getPos() end
+            lastDamage = timer.curtime()
+        end
+    end)
+    hook.add("think", "recall", function()
+        if backPos and timer.curtime() - lastDamage > 1 then
+            owner():setPos(backPos)
+            backPos = nil
+        end
+    end)
+else
+    --@include libs/holotext.txt
+    Text = require("libs/holotext.txt")
+    
+    damageTexts = {}
+    
+    function displayDamage(damage)
+        local pos = owner():getPos() + Vector(0, 0, 75) -- Initial position above the player
+        local scale = Vector(0.5)
+        local colour = Color(255, 0, 0, 255)
+        local yaw = (- pos + player():getEyePos()):getAngle()[2] + 90
+        local ang = Angle(0, yaw, 0)
+        local damageText = Text:new(string.comma(damage), pos, ang, scale, colour)
+        damageText:setMaterial("models/debug/debugwhite")
+    
+        table.insert(damageTexts, {damageText, coroutine.create(fadeText), timer.curtime()})
+    end
+    
+    function fadeText(damageText)
+        local duration = 1.5 -- Duration for the text to fade and move
+        local startTime = timer.curtime()
+        while timer.curtime() - startTime < duration do
+            local elapsed = timer.curtime() - startTime
+            local progress = elapsed / duration
+    
+            -- Move text upwards
+            local newPos = damageText:getPos() + Vector(0, 0, 50 * timer.frametime())
+            damageText:setPos(newPos)
+    
+            -- Fade out text
+            local newAlpha = math.max(0, 255 * (1 - progress))
+            local newColor = Color(255, 0, 0, newAlpha)
+            damageText:setColor(newColor)
+    
+            coroutine.yield()
+        end
+    
+        damageText:remove() -- Remove the text hologram after the animation
+    end
+    
+    hook.add("think", "updateDamageTexts", function()
+        for i = #damageTexts, 1, -1 do
+            local damageText, co, startTime = unpack(damageTexts[i])
+            if coroutine.status(co) == "dead" then
+                table.remove(damageTexts, i)
+            else
+                coroutine.resume(co, damageText)
+            end
+        end
+    end)
+        net.receive("dmg", function() 
+            displayDamage(net.readFloat())
+    end)
+end

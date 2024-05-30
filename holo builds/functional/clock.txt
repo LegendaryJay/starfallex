@@ -3,8 +3,8 @@
 --@shared
 
 if SERVER then
-    local scale = 1
-    local timeZoneOffset = -7 -- offset from GMT
+    local scale = 100
+    local timeZoneOffset = 2 -- offset from GMT
     
     -----------
     

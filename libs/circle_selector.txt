@@ -4,15 +4,23 @@
 
 local CircleSelector = class("CircleSelector")
 
-function CircleSelector:initialize(options, visualizer, callback)
+function CircleSelector:initialize(options, visualizer, callback, settings)
     self.options = options
-    self.visualizer = visualizer
-    self.callback = callback
+    self.visualizer = visualizer -- index, holo, option
+    self.callback = callback -- key, value
 
-    self.radialDistance = 20
-    self.deadZone = self.radialDistance * 0.7
-    self.selectionDistance = 100
-    self.model = "models/holograms/hq_rcube.mdl"
+    --default settings: 
+    local defaultSettings = {
+        applyHoverEffect = function(holo, scale) holo:setScale(Vector(1, 1, 1.5) * scale) end,
+        removeHoverEffect = function(holo, scale) holo:setScale(Vector(1, 1, 1) * scale) end,
+        radialDistance = 40,
+        deadZone = 40 * 0.7,
+        selectionDistance = 100,
+        model = "models/holograms/hq_rcube.mdl",
+    }
+    for key, value in pairs(defaultSettings) do
+        self[key] = (settings and settings[key] and type(settings[key]) == type(value)) and settings[key] or value
+    end
 
     self.initialAngle = Angle()
     self.selectionHolograms = {}
@@ -23,14 +31,6 @@ function CircleSelector:initialize(options, visualizer, callback)
 
     self:initializeSelections()
     return self
-end
-
-function CircleSelector:applyHoverEffect(holo)
-    holo:setScale(Vector(1, 1, 1) * 1.5 * self.scaleFactor)
-end
-
-function CircleSelector:removeHoverEffect(holo)
-    holo:setScale(Vector(1, 1, 1) * self.scaleFactor)
 end
 
 function CircleSelector:initializeSelections()
@@ -77,25 +77,26 @@ function CircleSelector:update()
     local angleToSelection = 360 - (360 + 90 - self.selectionAngleSpan * 0.5 + math.deg(math.atan2(directionVector[2], directionVector[1]))) % 360
     
     local intersectionLength = self:getIntersection():setX(0):getLength()
-    local previousHover = self.currentIndex > 0 and self.selectionHolograms[self.currentIndex] or nil
+    local previousHover = (self.currentIndex > 0) and self.selectionHolograms[self.currentIndex] or nil
     
     if intersectionLength > self.deadZone then
+    
         local selectedIndex = math.floor(angleToSelection / self.selectionAngleSpan) + 1
         
-        local hoverHologram = selectedIndex > 0 and self.selectionHolograms[selectedIndex] or nil
+        local hoverHologram = (selectedIndex > 0) and self.selectionHolograms[selectedIndex] or nil
         
         if (not previousHover and hoverHologram) or previousHover ~= hoverHologram then
             if previousHover and previousHover:isValid() then
-                self:removeHoverEffect(previousHover)
+                self.removeHoverEffect(previousHover, self.scaleFactor)
             end
             if hoverHologram and hoverHologram:isValid() then
-                self:applyHoverEffect(hoverHologram)
+                self.applyHoverEffect(hoverHologram, self.scaleFactor)
             end
             self.currentIndex = selectedIndex
         end
     else
         if previousHover and previousHover:isValid() then
-            self:removeHoverEffect(previousHover)
+            self.removeHoverEffect(previousHover, self.scaleFactor )
         end
         self.currentIndex = 0
     end

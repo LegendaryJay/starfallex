@@ -1,0 +1,236 @@
+--@name tiny vehicle
+--@author Lil'Tugboat
+--@server
+
+
+local wheelMass = 100
+
+--[[
+prop.setPropClean(false)
+constraint.setConstraintClean(false)
+prop.setPropUndo(true)
+]]
+
+local seat
+local wheelFR 
+local wheelFL
+local wheelBL
+local wheelBR
+local platform
+local steering
+
+chip():setNocollideAll(true)
+
+
+local function spawnProps()
+    coroutine.yield()
+    
+    local center = chip():getPos() + Vector(0,0,60)
+    
+    platform = prop.create(center, Angle(0,0,0),"models/sprops/rectangles/size_5/rect_48x48x3.mdl",true)
+    platform:setNocollideAll(true)
+    
+    halfSize = platform:obbSize() * 0.5
+    right = platform:getRight() * (halfSize[2] + 2 )
+    forward = platform:getForward() * halfSize[1] 
+    coroutine.yield()
+    
+    
+    seat = prop.createSeat(center + Vector(0,0,0), Angle(0,-90,0),"models/nova/airboat_seat.mdl",true)
+    seat:setColor(Color(0,0,0,0))
+    seat:setNocollideAll(true)
+    
+    constraint.weld(seat, platform)
+    coroutine.yield()    
+    
+    wheelMdl = "models/sprops/trans/miscwheels/thin_moto30.mdl"
+    
+    wheelFR = prop.create(platform:obbCenterW() + right + forward, Angle(), wheelMdl, true)
+    wheelFR:enableSphere(true)
+    wheelFR:setBodygroup(1, 5)
+    wheelFR:setPhysMaterial("jeeptire")
+    wheelFR:setMass(wheelMass)
+    coroutine.yield()   
+    
+    steeringR = prop.create(wheelFR:obbCenterW(), Angle(0, 0,0),"models/sprops/geometry/sphere_3.mdl",true)
+    steeringR:setNocollideAll(true)
+    steeringR:setMass(wheelMass * 2)
+    constraint.axis(steeringR, platform, 0, 0, Vector(),  Vector(), nil,nil, nil, true, Vector(0,0,1) )
+    coroutine.yield()
+       
+    wheelFL = prop.create(platform:obbCenterW() - right + forward, Angle(), wheelMdl, true)
+    wheelFL:enableSphere(true)
+    wheelFL:setBodygroup(1, 5)
+    wheelFL:setPhysMaterial("jeeptire")
+    wheelFL:setMass(wheelMass)
+    constraint.nocollide(wheelFL, wheelFR)
+    coroutine.yield()  
+    
+    steeringL = prop.create(wheelFL:obbCenterW(), Angle(0, 0,0),"models/sprops/geometry/sphere_3.mdl",true)
+    steeringL:setNocollideAll(true)
+    steeringL:setMass(wheelMass * 2)
+    constraint.axis(steeringL, platform, 0, 0, Vector(),  Vector(), nil,nil, nil, true, Vector(0,0,1) )
+    coroutine.yield()
+        
+    wheelBL = prop.create(platform:obbCenterW() - right - forward, Angle(), wheelMdl, true)
+    wheelBL:enableSphere(true)
+    wheelBL:setBodygroup(1, 5)
+    wheelBL:setPhysMaterial("jeeptire")
+    wheelBL:setMass(wheelMass)
+    constraint.nocollide(wheelBL, wheelFR)
+    constraint.nocollide(wheelBL, wheelFL)
+    coroutine.yield()   
+       
+    wheelBR = prop.create(platform:obbCenterW() + right - forward, Angle(), wheelMdl, true)
+    wheelBR:enableSphere(true)
+    wheelBR:setBodygroup(1, 5)
+    wheelBR:setPhysMaterial("jeeptire")
+    wheelBR:setMass(wheelMass)
+    constraint.nocollide(wheelBR, wheelFR)
+    constraint.nocollide(wheelBR, wheelFL)    
+    constraint.nocollide(wheelBR, wheelBL)
+    coroutine.yield()   
+
+
+    local vecA = Vector(0,0,0)
+    local vecB =  Vector(0, 0, 0)
+
+    
+    constraint.ballsocketadv( wheelFL, steeringL, nil, nil, Vector(), Vector(), nil, nil, Vector(-0,-180,-0), Vector(0,180,0), Vector(), true, nil)
+    constraint.ballsocketadv( wheelFR, steeringR, nil, nil, Vector(), Vector(), nil, nil, Vector(-0,-180,-0), Vector(0,180,0), Vector(), true, nil)
+     
+
+
+
+    constraint.ballsocket(platform, wheelFL, 0, 0, Vector(), 0, 0, true)
+    constraint.ballsocket(platform, wheelFR, 0, 0, Vector(), 0, 0, true)
+    
+    --constraint.ballsocketadv(wheelFR, steering, nil, nil, Vector(), Vector(), nil, nil, Vector(-180,-180,-180), Vector(180,180,180), Vector(), true, true)
+    
+    
+
+    constraint.axis(wheelBL, platform, 0, 0, Vector(),  Vector(), nil,nil, nil, true, Vector(0,1,0) )
+    constraint.axis(wheelBR, platform, 0, 0, Vector(),  Vector(), nil,nil, nil, true, Vector(0,1,0) )
+    
+    local structure = platform:getAllConstrained()
+    for key, ent in pairs(structure) do
+        ent:setFrozen(false) 
+    end
+    
+    
+    platform:setFrozen(true)
+end
+
+local co = coroutine.create(spawnProps)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        while prop.canSpawn() and coroutine.status(co) ~= "dead"  do
+            coroutine.resume(co)
+        end
+    else
+        hook.remove("think", "holoSpawner")
+        hook.add("think", "keepSeatUpright", run)
+    end
+
+end)
+
+function move(yaw, speed)
+--[[
+    yaw = 0
+    forwardYaw = platform:getAngles()[2]
+    targetYaw = yaw + forwardYaw
+    difference = targetYaw - steering:getAngles()[2]
+    local dampingFactor = 5  -- Adjust this value to achieve the desired dampening effect
+    local damping = steering:getAngleVelocity() * dampingFactor
+    steering:applyTorque(Vector(0, 0, difference) * 10 - damping)
+    wheelBL:applyTorque(-wheelBL:getRight() * speed)
+    wheelBR:applyTorque(-wheelBR:getRight() * speed)
+]]
+end
+
+
+local watchInKey = {
+    [IN_KEY.FORWARD] = true,
+    [IN_KEY.BACK] = true,
+    [IN_KEY.MOVERIGHT] = true,
+    [IN_KEY.MOVELEFT] = true,
+    [IN_KEY.JUMP] = true,
+    [IN_KEY.SPEED] = true,
+}
+
+activeInputs = {}
+local driver = nil
+
+speedStep = 500
+rollStep = 20
+speed = 0
+function run()
+    if seat:getDriver() then
+       
+        driver = seat:getDriver()
+        roll = 0
+        boost = 1
+        speed = 0
+        
+        if activeInputs[IN_KEY.JUMP] and  activeInputs[IN_KEY.JUMP] == 1 then
+            wheel:applyForceCenter(Vector(0,0,1) * 10000)
+        end
+        
+        if activeInputs[IN_KEY.SPEED] and  activeInputs[IN_KEY.SPEED] > 0 then
+            boost = 2        
+        end
+        
+        if activeInputs[IN_KEY.FORWARD] and  activeInputs[IN_KEY.FORWARD] > 0 then
+        
+             speed = speed + speedStep * boost
+        end
+        if activeInputs[IN_KEY.BACK] and activeInputs[IN_KEY.BACK] > 0 then
+             speed = speed - speedStep * boost
+        end
+        if activeInputs[IN_KEY.MOVERIGHT] and activeInputs[IN_KEY.MOVERIGHT] > 0 then
+             roll = roll - rollStep
+        end
+        if activeInputs[IN_KEY.MOVELEFT] and activeInputs[IN_KEY.MOVELEFT] > 0 then
+             roll = roll + rollStep
+        end
+        speed = speed * 0.95
+        
+        move(roll, speed)
+    
+        for key, _ in pairs(watchInKey) do
+            if activeInputs[key] and activeInputs[key] > 0 then
+                activeInputs[key] = activeInputs[key] + 1
+            else
+                activeInputs[key] = nil
+            end
+        end
+    else
+        activeInputs = {}
+        driver = nil
+    end
+    
+    
+end
+
+hook.add("KeyPress", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] == nil or activeInputs[key] == 0 then
+            activeInputs[key] = 1
+        end
+    end
+end)
+hook.add("KeyRelease", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] and activeInputs[key] > 0 then
+            activeInputs[key] = 0
+        end
+    end
+end)
+
+
+
+
+
+
+

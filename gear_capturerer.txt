@@ -39,6 +39,7 @@ function CoinCage:spawn()
         self:remove()
         return
     end
+    if self.spawned then return end
 
     local fringeSizes = {
         12, 18, 24, 30, 36, 42, 48, 60, 72, 84, 96, 108, 120, 132, 144
@@ -144,7 +145,7 @@ local function coinController()
     local coinCages = {}
 
     while true do
-        local coins = find.all(function(ent) return string.startWith(ent:getClass(), "prop_glados_core") and not ent:getPos():isZero() and ent:getOwner() == owner() end)
+        local coins = find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") end)
         for index, coin in pairs(coins) do
             if not lookup[coin] then
                 local cage = CoinCage:new(coin, Vector(0, 0, -7000) + Vector(math.random() - 0.5, math.random() - 0.5, math.random() - 0.5) * 500)
@@ -158,7 +159,6 @@ local function coinController()
                 if cage.coin and cage.coin:isValid() then
                     if not cage.spawned then
                         table.insert(buildQueue, function() cage:spawn() end)
-                        cage.spawned = true
                     else
                         cage:move()
                     end
@@ -167,7 +167,7 @@ local function coinController()
                     table.remove(coinCages, ind)
                 end
             else
-                coroutine.yield() -- Yield if CPU usage is too high
+                coroutine.yield()
             end
         end
         coroutine.yield()
@@ -176,7 +176,7 @@ end
 
 local coBuildQueue = coroutine.create(processBuildQueue)
 hook.add("think", "processBuildQueue", function()
-    if coroutine.status(coBuildQueue) ~= "dead" then
+    if coroutine.status(coBuildQueue) ~= "dead" and prop.canSpawn() then
         coroutine.resume(coBuildQueue)
     end
 end)

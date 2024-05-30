@@ -1,0 +1,29 @@
+--@name see things with Holos
+--@author Lil'Tugboat
+--@server
+
+
+gears = {}
+
+
+gears =  find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") end)
+holos = {}
+for key, gear in pairs(gears) do
+    if gear and gear:isValid() then
+        pos = gear:obbCenterW()
+        holo = hologram.create(pos, Angle(), "models/hunter/misc/sphere2x2.mdl")
+        holo:setSize(gear:obbSize())
+        holo:setParent(gear)
+        holos[key] = holo
+    end
+end
+
+hook.add("think", "asdf", function()
+    for key, gear in pairs(gears) do
+        if not gear or not gear:isValid() then
+            if holos[key] and holos[key]:isValid() then
+                holos[key]:remove()
+            end
+        end
+    end
+end)

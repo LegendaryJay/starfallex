@@ -16,14 +16,15 @@ if SERVER then
     
     function deleteProp()
         if physEnt then
-             print("Item Deleted")
+            print("Item Deleted")
+            propHolo:remove()
             physEnt:remove()
             physEnt = nil
         end
     end
     
     function copyProp()
-        if physEnt then
+        if physEnt and physEnt:isValid() then
             local item = prop.create(physEnt:getPos(), physEnt:getAngles(), physEnt:getModel(), true)
             item:setSkin(physEnt:getSkin())
             item:setColor(physEnt:getColor())
@@ -46,37 +47,44 @@ if SERVER then
     hook.add("PhysgunPickup", "getEnt", function(ply, ent)
         if ply ~= owner() or ent:getOwner() != owner()  then return end
         physEnt = ent  
-        startAng = ent:getAngles()  
-        collisionGroup = ent:getCollisionGroup()
-        ent:setCollisionGroup(COLLISION_GROUP.WORLD)
-        ent:setNoDraw(true)
-        propHolo = hologram.create(ent:getPos(), ent:getAngles(), ent:getModel())
-        propHolo:setSkin(ent:getSkin())
-        propHolo:setColor(ent:getColor())
-        propHolo:setMaterial(ent:getMaterial())
+        startAng = physEnt:getAngles()  
+        collisionGroup = physEnt:getCollisionGroup()
+        physEnt:setCollisionGroup(COLLISION_GROUP.WORLD)
+        
+        if not propHolo or not propHolo:isValid() then
+            propHolo = hologram.create(physEnt:getPos(), physEnt:getAngles(), physEnt:getModel())
+        else
+            propHolo:setAngles(physEnt:getAngles())
+            propHolo:setPos(physEnt:getPos())
+            propHolo:setModel(physEnt:getModel())
+        end
+        
+        propHolo:setSkin(physEnt:getSkin())
+        propHolo:setColor(physEnt:getColor())
+        propHolo:setMaterial(physEnt:getMaterial())
         
 
         if doCopy then
-            doCopy = false
             copyProp()
         end
-    end)
-    
-    hook.add("PhysgunDrop", "getEnt", function(ply, ent)
-        if ply ~= owner() then return end
-        physEnt = nil
-        ent:setFrozen(true)
-        ent:setNoDraw(false)
-        ent:setCollisionGroup(collisionGroup)
-        if propHolo then
-            propHolo:remove()
-            propHolo = nil
-        end
+        
+        ent:setNoDraw(true)
     end)
     
     hook.add("think", "doPhygunStuff", function()
-        if physEnt and physEnt then
-            runRotate()
+        if physEnt and physEnt:isValid() then
+            if physEnt:isPlayerHolding() then
+                runRotate()
+            else
+                
+                runRotate()
+                
+                propHolo:remove()
+                physEnt:setFrozen(true)
+                physEnt:setNoDraw(false)
+                physEnt:setCollisionGroup(collisionGroup)
+                physEnt = nil
+            end 
         else
             physEnt = nil
         end
@@ -97,16 +105,20 @@ if SERVER then
     
     net.receive("pasteMat", function()
         mat = net.readString()
-        ent = entity(net.readFloat())
+        ent = entity(net.readFloat()) 
         
         if ent and ent:isValid() then
-            if ent:getMaterial() != mat then
-                if mat == "" then
-                    print("Material Cleared")
-                else
-                    print("Material Pasted")
+            if ent:getOwner() != owner() then
+                print("Material paste attempt failed: Does not belong to you.")
+            else
+                if ent:getMaterial() != mat then
+                    if mat == "" then
+                        print("Material Cleared")
+                    else
+                        print("Material Pasted")
+                    end
+                    ent:setMaterial(mat)
                 end
-                ent:setMaterial(mat)
             end
            
         end 
@@ -127,7 +139,7 @@ elseif player() == owner() then
         KEY.DELETE,
         KEY.R,
         KEY.ALT,
-        KEY.ENTER,
+        KEY.P,
         KEY.CTRL
     }
     local watchInKey = {
@@ -169,7 +181,7 @@ elseif player() == owner() then
         end
         
         if not input.getCursorVisible() then
-            if owner():getActiveWeapon() then
+            if owner():getActiveWeapon() and owner():getActiveWeapon():isValid() then
                 weapon = owner():getActiveWeapon():getClass()
                 if weapon == "weapon_physgun" then
                     if activeInputs[KEY.E] and activeInputs[KEY.E] == 1 or activeInputs[KEY.E] == 0 then
@@ -206,7 +218,7 @@ elseif player() == owner() then
                                     end
                                     
                                     if (copyMat != value) then
-                                        if copyMat == "" then
+                                        if value == "" then
                                             print("Cleared copied material")
                                         else
                                             print("Copied Material: " .. value)
@@ -224,6 +236,42 @@ elseif player() == owner() then
                         end
                     end
                     if activeInputs["!" .. IN_KEY.ATTACK] then
+--[[
+                        if activeInputs["!" .. IN_KEY.ATTACK2] == 1 then
+                            ent = player():getEyeTrace().Entity
+                            local materialList = {}
+                            if ent then 
+                                materialList = ent:getMaterials()
+                                materialList[#materialList + 1] = ent:getMaterial() != "" and ent:getMaterial() or nil
+                            end
+                            selector = Selector:new(
+                                materialList, 
+                                matVisualizer,
+                                function(key, value) 
+                                    if not value then
+                                        value = ""
+                                    end
+                                    
+                                    if (copyMat != value) then
+                                        if value == "" then
+                                            print("Cleared copied material")
+                                        else
+                                            print("Copied Material: " .. value)
+                                        end
+                                    end
+                                    copyMat = value
+                                end
+                            )
+                        elseif activeInputs["!" .. IN_KEY.ATTACK2] > 1 then
+                            if selector then
+                                selector:update()
+                            end
+                        elseif activeInputs["!" .. IN_KEY.ATTACK2] == 0 then
+                            selector:close()
+                        end
+]]
+                        
+
                         if activeInputs["!" .. IN_KEY.ATTACK] == 1 then
                             ent = player():getEyeTrace().Entity
                             if ent and ent:isValid() then
@@ -233,6 +281,7 @@ elseif player() == owner() then
                                 net.send()
                             end
                         end
+
                     end
                     if activeInputs[KEY.R] then
                         if activeInputs[KEY.R] == 1 then
@@ -247,7 +296,7 @@ elseif player() == owner() then
                     end
                 end
             end
-            if activeInputs[KEY.ENTER] and activeInputs[KEY.ENTER] == 1 and targetEnt then
+            if activeInputs[KEY.P] and activeInputs[KEY.P] == 1 and targetEnt then
                 local info = {
                     owner = targetEnt:getOwner(),
                     class = targetEnt:getClass(),
@@ -266,20 +315,10 @@ elseif player() == owner() then
                 if t.Entity and t.Entity:isValid() then
                     if t.Entity != targetEnt then 
                         targetEnt = t.Entity
-                        if not displayHolo then
-                            displayHolo = hologram.create(Vector(), Angle(), "models/maxofs2d/cube_tool.mdl")
-                            displayHolo:setColor(Color(255,255,255,150))
-                            displayHolo:setNoDraw(true)
-                        end
-                        displayHolo:setPos(targetEnt:obbCenterW())
-                        displayHolo:setAngles(targetEnt:getAngles())
-                        displayHolo:setScale(1.02 * targetEnt:obbSize()/ Vector(20.5, 20.5, 20.5))
-                        displayHolo:setParent(targetEnt)
                         print(targetEnt)
                     end
                 else
                     targetEnt = nil
-                    displayHolo:setNoDraw(true)
                 end
             end
         end
@@ -297,6 +336,7 @@ elseif player() == owner() then
         
         
     end)
+ 
     
 
     local lastAttackRelease = 0
@@ -316,9 +356,56 @@ elseif player() == owner() then
             end
         end
     end)
+    
+    local propMatrix = {}
+    
+    displayTemplate = {
+        {
+            text1 = "Right",
+            text2 = "-Y",
+            angle = Angle(0,0,-90),
+            pos = Vector(0,-1,0)
+        },        {
+            text1 = "Left",
+            text2 = "+Y",
+            angle = Angle(0,180,-90),
+            pos = Vector(0,1,0)
+        },        {
+            text1 = "Forward",
+            text2 = "+X",
+            angle = Angle(0,90,-90),
+            pos = Vector(1,0,0)
+        },        {
+            text1 = "Back",
+            text2 = "-X",
+            angle = Angle(0,-90,-90),
+            pos = Vector(-1,0,0)
+        },        {
+            text1 = "Up",
+            text2 = "+Z",
+            angle = Angle(180,0,0),
+            pos = Vector(0,0,1)
+        },        {
+            text1 = "Down",
+            text2 = "-Z",
+            angle = Angle(0,0,0),
+            pos = Vector(0,0,-1)
+        },
 
+    }
+
+    
+    
+ 
     hook.add("drawhud", "hudStuff",function() 
-        if targetEnt then
+        
+        if targetEnt and targetEnt:isValid() then
+        
+            local sp = targetEnt:getPos():toScreen()
+            render.drawFilledCircle(sp.x, sp.y, 4)
+            local sp = targetEnt:obbCenterW():toScreen()
+            render.drawCircle(sp.x, sp.y, 8)
+            
             render.pushViewMatrix({
                 type = "3D",
                 --origin = Vector(),
@@ -326,8 +413,52 @@ elseif player() == owner() then
                 --znear = 1,
                 --zfar = 100000
             })
-            displayHolo:draw()
+            
+            local size = targetEnt:obbSize()
+            
             render.draw3DWireframeBox(targetEnt:getPos(), targetEnt:getAngles(), targetEnt:obbMins(), targetEnt:obbMaxs(), false)
+            
+            
+            
+            for i = 1, 6 do
+                startM = Matrix()
+                startM:translate(targetEnt:obbCenterW())
+                startM:rotate(targetEnt:getAngles())
+                startM:setScale(size)
+                startM:translate(displayTemplate[i].pos * 0.5)
+                startM:rotate(displayTemplate[i].angle)
+                
+                m = startM:clone()
+                m:translate(Vector(-0.5,-0.5,-0))
+                clr = Color(
+                    math.abs(displayTemplate[i].pos[1]) * 255,
+                    math.abs(displayTemplate[i].pos[2]) * 255,
+                    math.abs(displayTemplate[i].pos[3]) * 255,
+                    10
+                )
+                render.pushMatrix(m, true)
+                render.setColor(clr)
+                render.drawRect(0, 0, 1, 1)
+                render.popMatrix()
+                
+                m = startM:clone()
+                m:scale(Vector(1,1,1) * 0.01)
+                
+                render.pushMatrix(m, true)
+                render.setColor(Color())
+                render.drawSimpleText(0,0, displayTemplate[i].text1, TEXT_ALIGN.CENTER, TEXT_ALIGN.BOTTOM)
+                render.drawSimpleText(0,0, displayTemplate[i].text2, TEXT_ALIGN.CENTER, TEXT_ALIGN.TOP)
+                render.popMatrix()
+                
+
+            end  
+            
+
+
+            --render.draw3DBox(targetEnt:getPos(), targetEnt:getAngles(), targetEnt:obbMins() , targetEnt:obbMaxs() )
+            -- maxofs2d/models/cube_tool
+            render.popViewMatrix()
+            
         end 
     
     end)

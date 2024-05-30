@@ -1,0 +1,25 @@
+--@name see things
+--@author Lil'Tugboat
+--@client
+
+if player() == owner() then
+    gears = {}
+    lastCheck = 0
+    enableHud(nil, true)
+    
+    hook.add("tick", "stuffstuff", function() 
+        if timer.curtime() - lastCheck >= 1 then
+            lastCheck = timer.curtime()
+            gears =  find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") end)
+        end
+    end)
+    
+    hook.add("drawhud", "hudStuff",function() 
+        for key, gear in pairs(gears) do
+            if gear and gear:isValid() then
+                pos = gear:obbCenterW():toScreen()
+                render.drawFilledCircle(pos.x, pos.y, 10)
+            end
+        end
+    end)
+end

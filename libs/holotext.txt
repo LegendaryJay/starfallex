@@ -254,7 +254,7 @@ function HoloText:_populateChars()
                 self.transform.scale
             )
         }
-        self.chars[i][2]:setColor(self.colour)
+        --self.chars[i][2]:setColor(self.colour)
         
         offset = offset + (bounds[self.text[i]][1] + self.kerning) -- increment the offset for the next letter's starting position
     end
@@ -370,6 +370,15 @@ function HoloText:setLineHeight(height)
     if self.lineHeight == height then return end
     self.lineHeight = height
     self:_applyTransform(0)
+end
+
+function HoloText:remove()
+    for _, charData in ipairs(self.chars) do
+        if charData[2] then
+            charData[2]:remove()
+        end
+    end
+    self.chars = {}
 end
 
 return HoloText

@@ -1,0 +1,175 @@
+--@name monowheel
+--@author Lil'Tugboat
+--@server
+
+--@include libs/criticalpd.txt
+
+
+
+local seatForce
+
+local seat
+local function spawnProps()
+    coroutine.yield()
+    
+    local center = chip():getPos() + Vector(0,0,100)
+    seat = prop.createSeat(center, Angle(0,-90,0),"models/nova/airboat_seat.mdl",true)
+    coroutine.yield()
+    
+    wheel = prop.create(seat:obbCenterW() + Vector(0,0,50), Angle(), "models/sprops/geometry/fring_144.mdl", true)
+    coroutine.yield()    
+    
+    wheelL = prop.create(wheel:obbCenterW() + Vector(0,20,0), Angle(), "models/sprops/geometry/fring_132.mdl", true)
+    coroutine.yield()    
+    
+    wheelR = prop.create(wheel:obbCenterW() + Vector(0,-20,0), Angle(), "models/sprops/geometry/fring_132.mdl", true)
+    coroutine.yield()
+    
+    centerPoint = prop.create(wheel:obbCenterW(), Angle(), "models/Gibs/HGIBS.mdl", true)
+    centerPoint:setNocollideAll(true)
+    coroutine.yield()
+    
+    
+    wheel:setPhysMaterial("jeeptire")
+    wheelL:setPhysMaterial("jeeptire")
+    wheelR:setPhysMaterial("jeeptire")
+    
+    constraint.weld(wheelL, wheel)
+    constraint.weld(wheelL, wheel)
+    constraint.weld(wheelL, wheel)
+    constraint.weld(wheelR, wheel)
+    constraint.weld(wheelR, wheel)
+    constraint.weld(wheelR, wheel)
+    
+    
+    
+    local vecA
+    local vecB
+    local vecC
+    constraint.axis(wheel, seat, 0, 0,wheel:obbCenterW(), seat:getForward() , nil,nil, nil, true, Vector(0,0,0))
+    
+    hologram.create(wheel:localToWorld(vecA), Angle(), "models/sprops/geometry/sphere_3.mdl")
+    
+    constraint.ballsocketadv(centerPoint, seat, nil, nil, Vector(), Vector(), nil, nil, Vector(0,0,0), Vector(0,0,0), Vector(), true, true)
+    constraint.nocollide(seat, wheel)
+    
+    wheel:setMass(500)
+    seat:setMass(1000)
+    centerPoint:setMass(5000)
+    
+    
+    seat:setFrozen(false)
+    wheel:setFrozen(false)
+    wheelL:setFrozen(false)
+    wheelR:setFrozen(false)
+    centerPoint:setFrozen(false)
+    
+    seatForce = require("libs/criticalpd.txt"):new(centerPoint, 100, 4000)
+end
+
+local co = coroutine.create(spawnProps)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        while prop.canSpawn() and coroutine.status(co) ~= "dead"  do
+            coroutine.resume(co)
+        end
+    else
+        hook.remove("think", "holoSpawner")
+        hook.add("think", "keepSeatUpright", run)
+    end
+
+end)
+
+function move(roll, speed)
+    centerPoint:setPos(Vector())
+    seatForce:setTargetAng(Angle(0, centerPoint:getAngles()[2], -roll))
+    seatForce:simulateAngForce()
+    --centerPoint:setAngles(Angle(0,centerPoint:getAngles()[2] + roll, 0))
+    wheel:applyTorque(-wheel:getRight() * speed * wheel:getMass())
+end
+
+
+local watchInKey = {
+    [IN_KEY.FORWARD] = true,
+    [IN_KEY.BACK] = true,
+    [IN_KEY.MOVERIGHT] = true,
+    [IN_KEY.MOVELEFT] = true,
+    [IN_KEY.JUMP] = true,
+    [IN_KEY.SPEED] = true,
+}
+
+activeInputs = {}
+local driver = nil
+
+speedStep = 5
+rollStep = 5
+speed = 0
+function run()
+    if seat:getDriver() then
+       
+        driver = seat:getDriver()
+        roll = 0
+        boost = 1
+        
+        if activeInputs[IN_KEY.JUMP] and  activeInputs[IN_KEY.JUMP] == 1 then
+            wheel:applyForceCenter(Vector(0,0,1) * 10000)
+        end
+        
+        if activeInputs[IN_KEY.SPEED] and  activeInputs[IN_KEY.SPEED] > 0 then
+            boost = 2        
+        end
+        
+        if activeInputs[IN_KEY.FORWARD] and  activeInputs[IN_KEY.FORWARD] > 0 then
+        
+             speed = speed + speedStep * boost
+        end
+        if activeInputs[IN_KEY.BACK] and activeInputs[IN_KEY.BACK] > 0 then
+             speed = speed - speedStep * boost
+        end
+        if activeInputs[IN_KEY.MOVERIGHT] and activeInputs[IN_KEY.MOVERIGHT] > 0 then
+             roll = roll - rollStep
+        end
+        if activeInputs[IN_KEY.MOVELEFT] and activeInputs[IN_KEY.MOVELEFT] > 0 then
+             roll = roll + rollStep
+        end
+        speed = speed * 0.95
+        
+        move(roll, speed)
+    
+        for key, _ in pairs(watchInKey) do
+            if activeInputs[key] and activeInputs[key] > 0 then
+                activeInputs[key] = activeInputs[key] + 1
+            else
+                activeInputs[key] = nil
+            end
+        end
+    else
+        activeInputs = {}
+        driver = nil
+    end
+    
+    
+end
+
+hook.add("KeyPress", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] == nil or activeInputs[key] == 0 then
+            activeInputs[key] = 1
+        end
+    end
+end)
+hook.add("KeyRelease", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] and activeInputs[key] > 0 then
+            activeInputs[key] = 0
+        end
+    end
+end)
+
+
+
+
+
+
+

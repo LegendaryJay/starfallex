@@ -1,0 +1,21 @@
+--@name EXPLODE THE COINS
+--@author Lil'Tugboat
+--@server
+
+if player() == owner() then
+    gears = {}
+    lastCheck = 0
+
+    
+    hook.add("tick", "stuffstuff", function() 
+        if timer.curtime() - lastCheck >= 1 then
+            lastCheck = timer.curtime()
+            gears =  find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") end)
+        end
+        for key, gear in pairs(gears) do
+            if gear and gear:isValid() then
+                game.blastDamage(gear:obbCenterW(), 1, 1000)
+            end
+        end
+    end)
+end

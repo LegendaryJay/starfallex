@@ -1,0 +1,23 @@
+--@name reverse health
+--@author Lil'Tugboat
+--@server
+
+owner():setHealth(1)
+hook.add("PlayerHurt", "thing", function(ply, attacker, newHealth, damageTaken)
+    if ply == owner() and attacker != owner() then
+        function getName()
+            attacker:getName()
+        end
+        --hasName = pcall(getName)
+        --local name =  hasName and attacker:getName() or "[no name]"
+        --str = name .. " hit me with " .. string.comma(damageTaken) .. " damage"
+        --print(str)
+        --
+        ply:setHealth(ply:getHealth() + damageTaken * 2)
+        if ply:getHealth() > 1000 then
+            game.blastDamage(owner():obbCenterW(), 500, 1500)
+        end
+    end
+
+    
+end)

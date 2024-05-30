@@ -30,11 +30,11 @@ function SevenSegmentDisplay:initialize(position, angle, scale, onMaterial, onCo
 
     self.segmentPositions = {
         {position = Vector(0, 0, 60), angle = Angle()},
-        {position = Vector(0, -30, 30), angle = Angle(0, 0, 90)},
-        {position = Vector(0, -30, -30), angle = Angle(0, 0, 90)},
-        {position = Vector(0, 0, -60), angle = Angle(0, 0, 0)},
-        {position = Vector(0, 30, -30), angle = Angle(0, 0, 90)},
         {position = Vector(0, 30, 30), angle = Angle(0, 0, 90)},
+        {position = Vector(0, 30, -30), angle = Angle(0, 0, 90)},
+        {position = Vector(0, 0, -60), angle = Angle(0, 0, 0)},
+        {position = Vector(0, -30, -30), angle = Angle(0, 0, 90)},
+        {position = Vector(0, -30, 30), angle = Angle(0, 0, 90)},
         {position = Vector(), angle = Angle()}
     }
 
