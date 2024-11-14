@@ -125,8 +125,8 @@ if SERVER then
     end)
     
 elseif player() == owner() then
-    --@include libs/circle_selector.txt
-    Selector = require("libs/circle_selector.txt")
+    --@include https://raw.githubusercontent.com/LegendaryJay/starfallex/main/libs/circle_selector.txt as selector
+    Selector = require("selector")
     
     enableHud(nil, true)
     local targetEnt = nil

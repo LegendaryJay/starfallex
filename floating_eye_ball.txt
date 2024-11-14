@@ -1,337 +1,393 @@
 --@name Floating Eye Ball
 --@author Lil'Tugboat
---@shared
+--@model models/props_combine/breendesk.mdl
+--@server
+
+local scale = 2
 
 
---[[
-cam
-in
-1    =    Activated
-2    =    Direction
-3    =    Angle
-4    =    Position
-5    =    Distance
-6    =    UnRoll
-7    =    Parent
-8    =    FilterEntities
-9    =    FLIR
-10    =    FOV
+body = {}
+local seat = prop.createSeat(chip():getPos() + Vector(-45,0,0), Angle(0,-90,0), "models/nova/chair_office02.mdl", true)
+seat:setNocollideAll(true)
 
-out
-1    =    wirelink
-2    =    On
-3    =    HitPos
-4    =    CamPos
-5    =    CamDir
-6    =    CamAng
-7    =    Trace
+table.insert(body, seat)
+
+local ball = hologram.create(chip():getPos() + Vector(0,0,50 + 18 * scale), Angle(), "models/sprops/geometry/sphere_36.mdl", Vector(1,1,1)  * scale)
+ball:setMaterial("sprops/trans/wheels/wheel_d_rim1")
+ball:setClip(1, true, ball:getForward() * 15.5 * scale, -ball:getForward(), ball)
+table.insert(body, ball)
+
+local camera = prop.createSent(chip():getPos() + Vector(0,30,45), Angle(0, 210, 0),  "gmod_wire_cameracontroller", 1, {
+    AllowZoom = false,
+    AutoMove = false,
+    AutoUnclip = false,
+    AutoUnclip_IgnoreWater = false,
+    DrawParent = true,
+    DrawPlayer = true,
+    FreeMove = false,
+    LocalMove = false,
+    Model = "models/props_combine/breenbust.mdl",
+    ParentLocal = false,
+})
+local camLink = wire.getWirelink(camera)
+
+local iris = hologram.create(ball:obbCenterW() + ball:getForward() * 15.0 * scale, Angle(0, 90, 0), "models/sprops/geometry/fring_18.mdl", Vector(1,1,1)  * scale)
+iris:setMaterial("WTP/paint_1")
+iris:setColor(Color(80,0,100,255))
+iris:setParent(ball)
+table.insert(body, iris)
+
+irisScale = 0.8
+local irisCenter = hologram.create(ball:obbCenterW() + ball:getForward() * 15.6 * scale, Angle(0,90,0), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl", Vector() )
+irisCenter:setParent(ball)
+irisCenter:setColor(Color(0,0,0,0))
+table.insert(body, irisCenter)
+
+local black = hologram.create(ball:obbCenterW() + ball:getForward() * 13.4 * scale, Angle(0, 90, 0), "models/sprops/geometry/fdisc_18.mdl", Vector(1,0,1) * scale)
+black:setMaterial("models/debug/debugwhite")
+black:setParent(ball)
+table.insert(body, black)
+
+local overlay = hologram.create(ball:obbCenterW(), Angle(-90, 0, 0), "models/sprops/geometry/sphere_36.mdl", Vector(1,1,1)* 1.15 * scale)
+overlay:setMaterial("models/props_combine/portalball001_sheet")
+overlay:setColor(Color(152,0,255,10))
+overlay:setParent(ball)
+table.insert(body, overlay)
 
 
-gun
-1    =    Fire
-2    =    Force
-3    =    Damage
-4    =    NumBullets
-5    =    Spread
-6    =    Delay
-7    =    Sound
-8    =    Tracer
+local irisHolos = {}
+irisCount = 10
 
-]]
+for i = 1, irisCount, 1 do
+    irisHolos[i] = hologram.create(
+        Vector(),
+        Angle(), 
+        "models/sprops/triangles_superthin/right/size_0_5/st_rtri_6x12.mdl",
+        Vector(1,1,1) * scale * irisScale
+    )
+    irisHolos[i]:setMaterial("WTP/wood_1c")
+    irisHolos[i]:setColor(Color(80,0,100,255))
+    irisHolos[i]:setParent(irisCenter)
+end
+table.add(body, irisHolos)
 
 
-if SERVER then
-    body = {}
-    
-    local scale = 0.25
-    local centerProp = prop.createSeat(chip():getPos() + Vector(0,0,50) * scale, Angle(), "models/sprops/geometry/sphere_9.mdl", true)
-    centerProp:setColor(Color(0,0,0,0))
-    centerProp:setNocollideAll(true)
-    
-    table.insert(body, centerProp)
-    
-    local ball = hologram.create(centerProp:obbCenterW(), Angle(), "models/sprops/geometry/sphere_36.mdl", Vector(1,1,1)  * scale)
-    ball:setMaterial("sprops/trans/wheels/wheel_d_rim1")
-    ball:setClip(1, true, ball:getForward() * 15.5 * scale, -ball:getForward(), ball)
-    ball:setParent(centerProp)
-    table.insert(body, ball)
-    
-    local gun = prop.createSent(Vector(), Angle(),  "gmod_wire_turret", 1, {
-        damage = 100,
-        delay = 0.05,
-        force = 100,
-        Model = "models/Items/combine_rifle_ammo01.mdl",
-        numbullets = 1,
-        sound = "0",
-        spread = 0,
-        tracer = "laser",
-        tracernum = 1,
-    })
-    
-    local gunLink = wire.getWirelink(gun)
-    --printTable(gunLink:inputs())
-    
-    gun:setPos(centerProp:obbCenterW() + centerProp:getForward() * 18 * scale)
-    gun:setParent(ball)
-    gun:setColor(Color(0,0,0,0))
-    gun:setSolid(false)
-    
-    
-    local camera = prop.createSent(chip():getPos() + Vector(0,10,0), Angle(),  "gmod_wire_cameracontroller", 1, {
-        AllowZoom = false,
-        AutoMove = false,
-        AutoUnclip = false,
-        AutoUnclip_IgnoreWater = false,
-        DrawParent = true,
-        DrawPlayer = true,
-        FreeMove = false,
-        LocalMove = false,
-        Model = "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl",
-        ParentLocal = false,
-    })
-    local camLink = wire.getWirelink(camera)
-    --printTable(wire.getInputs(camera))
-    
-    
-    
-    --local iris = hologram.create(ball:obbCenterW() + ball:getForward() * 14, Angle(0, 90, 0), "models/sprops/geometry/fring_18.mdl")
-    --iris:setMaterial("models/debug/debugwhite")
-    local iris = hologram.create(ball:obbCenterW() + ball:getForward() * 15.0 * scale, Angle(0, 90, 0), "models/sprops/geometry/fring_18.mdl", Vector(1,1,1)  * scale)
-    iris:setMaterial("sprops/textures/hex_light_bump")
-    iris:setColor(Color(152,0,255,255))
-    iris:setParent(ball)
-    table.insert(body, iris)
---[[
-    local iris = hologram.create(centerProp:obbCenterW() + ball:getForward() * 14.4 * scale, Angle(90, 0, 0), "models/holograms/hq_torus_thick.mdl", Vector(1.7,1.7,0.7) * scale)
-    iris:setMaterial("sprops/textures/hex_light_bump")
-    iris:setColor(Color(152,0,255,255))
-    iris:setParent(ball)
-]]
-
-    
-    irisScale = 0.8
-    local irisCenter = hologram.create(ball:obbCenterW() + ball:getForward() * 15.6 * scale, Angle(0,90,0), "models/sprops/cuboids/height06/size_1/cube_6x6x6.mdl", Vector() )
-    irisCenter:setParent(ball)
-    irisCenter:setColor(Color(0,0,0,0))
-    table.insert(body, irisCenter)
-    
-    local black = hologram.create(centerProp:obbCenterW() + ball:getForward() * 13.4 * scale, Angle(0, 90, 0), "models/sprops/geometry/fdisc_18.mdl", Vector(1,0,1) * scale)
-    black:setMaterial("models/debug/debugwhite")
-    black:setParent(ball)
-    table.insert(body, black)
-    
-    --local lens = hologram.create(centerProp:obbCenterW() + ball:getForward() * 8.25 * scale, Angle(90, 0, 0), "models/sprops/misc/domes/size_2/dome_24x12.mdl", Vector(1,1,1) * scale)
-    --lens:setMaterial("models/dog/eyeglass")
-    --lens:setColor(Color(255,255,255,70))
-    --lens:setParent(ball)
-    
-    local overlay = hologram.create(centerProp:obbCenterW(), Angle(-90, 0, 0), "models/sprops/geometry/sphere_36.mdl", Vector(1,1,1)* 1.15 * scale)
-    overlay:setMaterial("models/props_combine/portalball001_sheet")
-    overlay:setColor(Color(152,0,255,10))
-    overlay:setParent(ball)
-    table.insert(body, overlay)
-    
-    
-    local irisHolos = {}
-    irisCount = 10
-
+function changeAperture(percent)
     for i = 1, irisCount, 1 do
-        irisHolos[i] = hologram.create(
-            Vector(),
-            Angle(), 
-            "models/sprops/triangles_superthin/right/size_0_5/st_rtri_6x12.mdl",
-            Vector(1,1,1) * scale * irisScale
-        )
-        irisHolos[i]:setMaterial("sprops/textures/hex_light_bump")
-        irisHolos[i]:setColor(Color(152,0,255,255))
-        irisHolos[i]:setParent(irisCenter)
-    end
-    table.add(body, irisHolos)
-    camLink.FilterEntities = body
-    
-    function changeAperture(percent)
-        for i = 1, irisCount, 1 do
-            directionMod = math.lerp(percent, -40, -120)
-            magnitudeMod = math.lerp(percent, 5, 10)
-            angleMod = math.lerp(percent, 82, -20)
-            
-            initialPitch = 360 * (i - 1) / irisCount
-            
-            direction = Angle(initialPitch + directionMod, 0, 0):getForward()
-            irisHolos[i]:setPos(irisCenter:localToWorld(direction * magnitudeMod * scale * irisScale))
-            
-            newAng = Angle(angleMod + initialPitch, 0, 0)
-
-            irisHolos[i]:setAngles(irisCenter:localToWorldAngles(newAng):rotateAroundAxis(irisHolos[i]:getForward(), 10))
-        end
-    end
-
-
-    
-    
-    
-    
-    --[[
-    tracking modes
-        - player
-        - nearest player
-        - none
+        directionMod = math.lerp(percent, -40, -120)
+        magnitudeMod = math.lerp(percent, 5, 10)
+        angleMod = math.lerp(percent, 82, -20)
         
-    movment nodes
-        - wander
-        - follow player
-        - follow me
-        - player control
-            player
-            free
-    
-    player controls
-        up/down = scroll players
-        r = lock to target -- dist stays the same
-        w/s = forward/back
-        a/s = strafe or strafe around target
-        mouse1 = fire
-        mouse2 = skip
-        shift/ctrl = increaseSpeed
-    ]]
-    
-    --[[
-    -- driving
-    w/s forward/bac
-    ]]
-    
-    
-    
-    local inputs = {}
-    net.receive("pressed", function()
-        local key = net.readFloat()
-        inputs[key] = true
-    end)
-    
-    net.receive("released", function()
-        local key = net.readFloat()
-        inputs[key] = false
-        table.remove(inputs, key)
-    end)
-    
-    changeAperture(0.5)
-    local sinOffset = 0
-    
-    local driver
-    local function set_driver(ply, vehicle, role)
-        if vehicle ~= centerProp then return end 
-        if role then
-            camLink.Activated = 1
-            ball:setParent()
-            driver = ply
-            camLink.Parent = centerProp
-            --print("driver")
-        else
-            camLink.Activated = 0
-            ball:setParent(centerProp)
-            ball:setPos(centerProp:getPos())
-            ball:setAngles(centerProp:getAngles())
-            driver = nil
-            --print("no driver")
-        end
+        initialPitch = 360 * (i - 1) / irisCount
+        
+        direction = Angle(initialPitch + directionMod, 0, 0):getForward()
+        irisHolos[i]:setPos(irisCenter:localToWorld(direction * magnitudeMod * scale * irisScale))
+        
+        newAng = Angle(angleMod + initialPitch, 0, 0)
+
+        irisHolos[i]:setAngles(irisCenter:localToWorldAngles(newAng):rotateAroundAxis(irisHolos[i]:getForward(), 10))
     end
-
-    hook.add("PlayerEnteredVehicle", "SetDriver", set_driver)
-    hook.add("PlayerLeaveVehicle", "SetDriver", set_driver)
-    
+end
 
     
-    -- Map of inputs and their acceleration values / forces
-    local driverInputs = {
-        [IN_KEY.FORWARD] = 10,
-        [IN_KEY.BACK]  = 10,
-        [IN_KEY.MOVELEFT] = 10,
-        [IN_KEY.MOVERIGHT]  = 10,
-        [IN_KEY.JUMP]  = 10,
-        [IN_KEY.DUCK]  = 10,
-        [IN_KEY.SPEED]  = 2,
-        [IN_KEY.RELOAD] = 1
-    }
-    local driverOutputs = {}
-    
-    
-    hook.add("KeyPress", "KeyPress", function(ply, key)
-        if ply ~= driver then return end 
-        print(table.keyFromValue(IN_KEY, key))
-        if driverInputs[key] then
-            driverOutputs[key] = driverInputs[key]
-        end
-    end)
-    
-    hook.add("KeyRelease", "KeyRelease", function(ply, key)
-        if ply ~= driver then return end 
-        if driverInputs[key] then
-            driverOutputs[key] = 0
-        end
-    end)
-    
-    function drive()
-        if driver then
-            local multiplier = (driverOutputs[IN_KEY.SPEED] or 0) + 1
-            local forward = (driverOutputs[IN_KEY.FORWARD] or 0) - (driverOutputs[IN_KEY.BACK] or 0)
-            local right = -((driverOutputs[IN_KEY.MOVERIGHT] or 0) - (driverOutputs[IN_KEY.MOVELEFT] or 0))
-            local up = (driverOutputs[IN_KEY.JUMP] or 0) - (driverOutputs[IN_KEY.DUCK] or 0)
-            
-            local newPos = ball:localToWorld(Vector(forward, right, up) * multiplier)
-            
-            ball:setPos(newPos)
-            ball:setAngles(driver:getEyeAngles())
-            centerProp:setAngles(driver:getEyeAngles())
-            camLink.Activated = 1
-            camLink.FilterEntities = body
-            camLink.Position = ball:getPos() +    driver:getEyeAngles():getForward() * 20 * scale                                
-            camLink.Angles = driver:getEyeAngles()                               
-        end
-            
-    
+function changeApertureByDist(distance)
+    local percent = math.clamp(1 - distance/(500 + 500 * scale) ,0,1)
+    changeAperture(percent)
+end
+
+local driver
+
+local driverInputs = {
+    [IN_KEY.FORWARD] = 10,
+    [IN_KEY.BACK]  = 10,
+    [IN_KEY.MOVELEFT] = 10,
+    [IN_KEY.MOVERIGHT]  = 10,
+    [IN_KEY.JUMP]  = 10,
+    [IN_KEY.DUCK]  = 10,
+    [IN_KEY.SPEED]  = 2,
+    [IN_KEY.RELOAD] = 1,
+    [IN_KEY.ATTACK2] = 1,
+}
+local driverOutputs = {}
+
+local function set_driver(ply, vehicle, role)
+    if vehicle ~= seat then return end 
+    if ply ~= owner() then
+        vehicle:ejectDriver()
+        return
     end
-    
-    
-    
-    
-    hook.add("think", "eyestuff", function()
-        players = find.allPlayers()
-        players = find.sortByClosest(players, ball:obbCenterW(), false)
-        --ball:setAngles( (-ball:obbCenterW() + players[1]:getEyePos()):getAngle())
-        drive()
-        --changeAperture(math.cos(sinOffset))
-        --sinOffset = sinOffset + 0.05
-        
-     end)
-    
-    
-    
+    driverOutputs = {}
+    if role then
+        print("Hello Driver!")
+        camLink.Activated = 1
+        ball:setParent()
+        driver = ply
+        --camLink.Angle = ball:getAngles()
+        camLink.Parent = ball
+        camLink.FilterEntities = body
+    else
+        print("Goodbye, Driver!")
+        camLink.Activated = 0
+        driver = nil
+    end
+end
 
-else
-    if player() != owner() then return end
-    
-    
-    local inputs = {}
-    hook.add("keyPress", "pressed", function(ply, key)
-        if ply == owner() and not inputs[key] then
-            inputs[key] = true
-            net.start("pressed")
-                net.writeFloat(key)
-            net.send()
-        end
-        
-    end) 
-    
-    hook.add("keyRelease", "released", function(ply, key)
-        if ply == owner() and inputs[key] then
-            inputs[key] = false
-            table.remove(inputs, key)
-            net.start("released")
-                net.writeFloat(key)
-            net.send()
-        end
-        
-    end) 
-    
+hook.add("PlayerEnteredVehicle", "SetDriver", set_driver)
+hook.add("PlayerLeaveVehicle", "SetDriver", set_driver)
+
+hook.add("KeyPress", "KeyPress", function(ply, key)
+    if ply ~= driver then return end 
+    if driverInputs[key] then
+        driverOutputs[key] = driverInputs[key]
+    end
+end)
+
+hook.add("KeyRelease", "KeyRelease", function(ply, key)
+    if ply ~= driver then return end 
+    if driverInputs[key] then
+        driverOutputs[key] = 0
+    end
+end)
+
+
+local Follower = class("follower")
+
+function Follower:initialize()
+    self:reset()
+end
+
+function Follower:reset()
+    self.isPlayer = false
+    self.followEnt = nil
+end
+
+function Follower:isValid()
+    return self.followEnt and self.followEnt:isValid() 
+end
+
+function Follower:setTarget(ent)
+    if not ent:isValid() then 
+        return false
+    end
+    self.followEnt = ent
+    self.isPlayer = ent:isPlayer()
     
 end
+
+function Follower:getPos()
+    if self.followEnt then 
+        return self.isPlayer and self.followEnt:getEyePos() or self.followEnt:obbCenterW()
+    else return nil end
+end
+    
+
+
+
+lastModePress = 0
+followMode = false
+tracked = Follower:new()
+targetRadius = 0
+
+function getControls() 
+    local multiplier = (driverOutputs[IN_KEY.SPEED] or 0) + 1
+    forward = ((driverOutputs[IN_KEY.FORWARD] or 0) - (driverOutputs[IN_KEY.BACK] or 0)) * multiplier
+    right = (((driverOutputs[IN_KEY.MOVERIGHT] or 0) - (driverOutputs[IN_KEY.MOVELEFT] or 0)) ) * multiplier
+    up = ((driverOutputs[IN_KEY.JUMP] or 0) - (driverOutputs[IN_KEY.DUCK] or 0)) * multiplier
+end
+
+function freeRunMode() 
+    return (forward * ball:getForward() + right * ball:getRight() + up * ball:getUp())
+end
+
+function trackRunMode(targetPos)
+    targetRadius = math.max(100, ball:obbCenterW():getDistance(targetPos) - forward)
+    direction = (targetPos - (ball:obbCenterW() + (right * ball:getRight() + up * ball:getUp()))):getNormalized()
+    pcall(function() driver:setEyeAngles(ball:getAngles()) end)
+    return targetRadius * direction
+end
+
+function followRunMode(targetPos)
+    targetRadius = math.max(100, targetRadius - forward)
+    direction = (targetPos - (ball:obbCenterW() + (right * ball:getRight() + up * ball:getUp()))):getNormalized()
+    pcall(function() driver:setEyeAngles(ball:getAngles()) end)
+    return targetRadius * direction
+end
+
+function staticFollowRunMode(targetPos)
+    targetRadius = math.max(100, targetRadius - forward)
+    direction = driver:getEyeAngles():getForward()
+    return targetRadius * direction
+end
+
+
+function drive()
+    getControls()
+    
+    if not driver then
+        if ball:getParent() then ball:setParent() end
+        local tempPos = tracked:getPos()
+        if not tempPos then
+            players = find.allPlayers()
+            player = find.sortByClosest(players, ball:obbCenterW(), false)[1]
+            tempPos = player:getEyePos()
+        end
+        vec = trackRunMode(tempPos)
+        ball:setAngles(vec:getAngle())
+        changeApertureByDist(tempPos:getDistance(irisCenter:obbCenterW()))
+    elseif isTracking then 
+        if not tracked:isValid() then
+            tracked:reset()
+            isTracking = false
+            return
+        end
+    
+        local targetPos = tracked:getPos()
+        
+        if trackMode == 0 then
+            if ball:getParent() then ball:setParent() end
+            local tempPos = targetPos
+            if not targetPos then
+                players = find.allPlayers()
+                player = find.sortByClosest(players, ball:obbCenterW(), false)[1]
+                tempPos = player:getEyePos()
+            end
+            vec = trackRunMode(tempPos)
+        elseif trackMode == 1 then
+            if ball:getParent() != tracked.followEnt then ball:setParent(followEnt)  end
+            
+            vec = followRunMode(targetPos)
+        else
+            if ball:getParent() != tracked.followEnt then ball:setParent(followEnt)  end
+            vec = staticFollowRunMode(targetPos)
+        end
+        ball:setAngles(vec:getAngle())
+        ball:setPos(targetPos - vec)
+        
+        changeApertureByDist(vec:getLength())
+    else
+        if ball:getParent() then ball:setParent() end
+        vec = freeRunMode()
+        
+        ball:setAngles(driver:getEyeAngles())
+        ball:setPos(ball:getPos() + vec)
+        
+        hitPos = trace.line(irisCenter:obbCenterW(), irisCenter:obbCenterW() + ball:getForward() * 99999).HitPos
+        changeApertureByDist(
+            hitPos:getDistance(irisCenter:obbCenterW())
+        )
+    end
+end
+
+
+lastModePress = 0
+
+isTracking = false
+trackMode = 0 
+-- 0 : track only
+-- 1 : follow
+-- 2 : follow with static camera
+
+
+function getTrackInfo()
+    local closestEntity = nil
+    local closestDist = 999999
+    local ballForward = ball:getForward()
+    local ballPos = ball:obbCenterW()
+    
+    -- Check all players
+    local players = find.allPlayers(function(ply) return ply:isValid() end)
+    for _, ply in ipairs(players) do
+        local plyPos = ply:getPos()
+        local direction = (plyPos - ballPos):getNormalized()
+        local angle = math.deg(math.acos(ballForward:dot(direction)))
+        if angle < 15 then -- Adjust the angle threshold as needed
+            local dist = angle
+            if dist < closestDist then
+                closestEntity = ply
+                closestDist = dist
+            end
+        end
+    end
+    
+    -- Check if a player was found or look for other entities
+    if closestEntity then
+        tracked:setTarget(closestEntity)
+        targetRadius = ball:obbCenterW():getDistance(tracked:getPos())
+    else
+        -- No player found, check for other entities
+        local traceResult = trace.line(ballPos, ballPos + ballForward * 5000, {ball, centerProp})
+        if traceResult.Entity and traceResult.Entity:isValid() then
+            tracked:setTarget(traceResult.Entity)
+            targetRadius = ball:obbCenterW():getDistance(tracked:getPos())
+        else
+            tracked:reset()
+        end
+    end
+
+end
+
+
+local lastFollowPress = 0
+
+hook.add("think", "eyestuff", function()
+    local currentPress = driverOutputs[IN_KEY.ATTACK2] or 0
+    if lastModePress != currentPress then
+        lastModePress = currentPress
+        if currentPress > 0 then
+            if isTracking then
+                isTracking = false
+                tracked:reset()
+                print("Manual Control")
+            else
+                getTrackInfo()
+                isTracking = tracked:isValid()
+                if isTracking then
+                    
+                    print("tracking " .. (tracked.isPlayer and tracked.followEnt:getName() or tracked.followEnt:getModel()))
+                end
+            end
+        end
+    end  
+    
+    local currentPress = driverOutputs[IN_KEY.RELOAD] or 0
+    if lastFollowPress != currentPress then
+        lastFollowPress = currentPress
+        
+        if currentPress > 0 then
+        trackMode = (trackMode + 1) % 3
+            if trackMode == 0 then
+                print("Stationary")
+            elseif trackMode == 1 then
+                print("Following Target")
+            elseif trackMode == 2 then
+                print("following Target with static camera")
+            end
+         end
+    end
+    
+    remoteBtn = owner():keyDown(IN_KEY.WALK)
+    
+    callBtn = owner():keyDown(IN_KEY.USE)
+    tpBtn = owner():keyDown(IN_KEY.JUMP)
+    
+    if remoteBtn then
+        if callBtn then
+            seat:use()
+        elseif tpBtn then
+            seat:ejectDriver()
+            owner():setPos(ball:obbCenterW())
+        end
+    end
+
+            
+    drive()
+    if math.random() > 0.999 then
+        changeAperture(0)
+    end
+    
+    camLink.Angle = ball:getForward():getAngle()
+    camLink.Position = ball:getPos() + ball:getForward() * 20 * scale
+    
+end)
+
+    

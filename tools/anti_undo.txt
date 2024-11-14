@@ -13,7 +13,9 @@ hook.add("tick", "propWatcher", function()
     if not props[propCount] or not props[propCount]:isValid() then
         if timer.curtime() - lastWarn > warnDelay then
             lastWarn = timer.curtime()
-            print("Protecting stuff made before this point. Say '!off' or press the RELOAD key on chip to shutdown and '!save' to save")
+            print(Color(255,55,255),"Anti-undo Active.") 
+            print(Color(155,105,155),"Shutdown: ", Color(255,552,255), "'!off' or press the RELOAD key on chip")
+            print(Color(155,105,155), "Save: ", Color(255,552,255), "'!save'")
         end
         for index = 1, propCount, 1 do
             insideSin = 1 

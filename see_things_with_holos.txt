@@ -2,28 +2,43 @@
 --@author Lil'Tugboat
 --@server
 
-
+lastCheck = 0
+checkInterval = 1
 gears = {}
-
-
-gears =  find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") end)
 holos = {}
-for key, gear in pairs(gears) do
-    if gear and gear:isValid() then
-        pos = gear:obbCenterW()
-        holo = hologram.create(pos, Angle(), "models/hunter/misc/sphere2x2.mdl")
-        holo:setSize(gear:obbSize())
-        holo:setParent(gear)
-        holos[key] = holo
-    end
-end
+
+
 
 hook.add("think", "asdf", function()
-    for key, gear in pairs(gears) do
-        if not gear or not gear:isValid() then
-            if holos[key] and holos[key]:isValid() then
-                holos[key]:remove()
+    local now = timer.curtime()
+    if now - lastCheck > checkInterval then
+        lastCheck = now
+        tempGears = find.all(function(ent) return string.startWith(ent:getClass(), "bs_gear") and not holos[ent:entIndex()] end)
+        if #tempGears > 0 then
+            print((#tempGears + #gears) .. " Gears Spawned!")
+            for key, gear in pairs(tempGears) do
+                if gear and gear:isValid() then
+                    table.insert(gears, gear:entIndex())
+                    pos = gear:obbCenterW()
+                    holo = hologram.create(pos, Angle(), "models/hunter/misc/sphere2x2.mdl")
+                    holo:setColor(Color(0,0,0,150))
+                    holo:setSize(gear:obbSize())
+                    holo:setParent(gear)
+                    holos[gear:entIndex()] = holo
+                end
             end
+        end
+    end
+
+    for key, gearInd in pairs(gears) do
+        gear = entity(gearInd)
+        if not gear or not gear:isValid() then
+            print("Gear Removed")
+            if holos[gearInd] and holos[gearInd]:isValid() then
+                holos[gearInd]:remove()
+                holos[gearInd] = nil
+            end
+            table.remove(gears, key)
         end
     end
 end)

@@ -1,0 +1,148 @@
+--@name lil barrel
+--@author Lil'Tugboat
+--@server
+
+iClip = 0
+function clipInd()
+    iClip = iClip + 1
+    return iClip
+end
+
+local hatClip = 0.33
+local feetClip = 0.8
+
+local function spawnProps()
+    local center = chip():getPos() + Vector(0,0,60)
+    
+    base = prop.createSeat(center, Angle(0,0,0),"models/props_c17/oildrum001.mdl",true)
+    base:setNoDraw(true)
+    
+    local holoClipSize = 
+    local holoClipLoc = base:obbCenterW() 
+    
+    holoBase = hologram.create(center, Angle(0,0,0),"models/props_c17/oildrum001.mdl")
+    holoBase:setParent(base)
+    holoBase:setClip(clipInd(), true, base:obbCenterW(), base:getUp())
+    
+--[[
+    hat = prop.createSeat(center, Angle(0,0,0),"models/props_c17/oildrum001.mdl")
+    hat:setParent(base)
+]]
+    coroutine.yield()
+    
+end
+
+local co = coroutine.create(spawnProps)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        while prop.canSpawn() and coroutine.status(co) ~= "dead"  do
+            coroutine.resume(co)
+        end
+    else
+        hook.remove("think", "holoSpawner")
+        hook.add("think", "keepSeatUpright", run)
+    end
+
+end)
+
+
+
+
+function move(yaw, speed)
+
+
+end
+
+
+local watchInKey = {
+    [IN_KEY.FORWARD] = true,
+    [IN_KEY.BACK] = true,
+    [IN_KEY.MOVERIGHT] = true,
+    [IN_KEY.MOVELEFT] = true,
+    [IN_KEY.JUMP] = true,
+    [IN_KEY.SPEED] = true,
+}
+
+
+activeInputs = {}
+local driver = nil
+
+
+function run()
+--[[
+    if not steeringL:isFrozen() then
+        steeringL:setFrozen(not steeringL:isPlayerHolding())
+    end
+    if not steeringR:isFrozen() then
+        steeringR:setFrozen(not steeringR:isPlayerHolding())
+    end
+
+
+    if seat:getDriver() and seat:getDriver():isValid() then
+        driver = seat:getDriver()
+        local roll = 0
+        local boost = 1
+        local speed = 0
+        
+        if activeInputs[IN_KEY.JUMP] and activeInputs[IN_KEY.JUMP] == 1 then
+            lightOn = not lightOn
+            wireLight.On = lightOn and 1 or 0
+        end
+        
+        if activeInputs[IN_KEY.SPEED] and activeInputs[IN_KEY.SPEED] > 0 then
+            boost = 1.5        
+        end
+        
+        if activeInputs[IN_KEY.FORWARD] and activeInputs[IN_KEY.FORWARD] > 0 then
+             speed = speed + speedStep * boost
+        end
+        if activeInputs[IN_KEY.BACK] and activeInputs[IN_KEY.BACK] > 0 then
+             speed = speed - speedStep * boost
+        end
+        if activeInputs[IN_KEY.MOVERIGHT] and activeInputs[IN_KEY.MOVERIGHT] > 0 then
+             roll = roll - rollStep
+        end
+        if activeInputs[IN_KEY.MOVELEFT] and activeInputs[IN_KEY.MOVELEFT] > 0 then
+             roll = roll + rollStep
+        end
+        speed = speed * 0.95
+        
+        move(roll, speed)
+    
+        for key, _ in pairs(watchInKey) do
+            if activeInputs[key] and activeInputs[key] > 0 then
+                activeInputs[key] = activeInputs[key] + 1
+            else
+                activeInputs[key] = nil
+            end
+        end
+    else
+        activeInputs = {}
+        driver = nil
+    end
+]]
+end
+
+
+hook.add("KeyPress", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] == nil or activeInputs[key] == 0 then
+            activeInputs[key] = 1
+        end
+    end
+end)
+hook.add("KeyRelease", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] and activeInputs[key] > 0 then
+            activeInputs[key] = 0
+        end
+    end
+end)
+
+
+
+
+
+
+

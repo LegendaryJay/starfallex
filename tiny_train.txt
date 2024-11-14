@@ -1,0 +1,152 @@
+--@name tiny train
+--@author Lil'Tugboat
+--@server
+
+
+--[[
+prop.setPropClean(false)
+constraint.setConstraintClean(false)
+prop.setPropUndo(true)
+]]
+
+local seat
+local platform
+
+
+local holos = {}
+
+
+chip():setNocollideAll(true)
+ropeI = 0
+
+function ittRopeInd()
+    ropeI = ropeI + 1
+    return ropeI
+end
+
+local function spawnProps()
+    coroutine.yield()
+    
+    local center = chip():getPos() + Vector(0,0,60)
+    offset = 20
+    
+    
+    
+    fClamps = prop.createSeat(center + Vector(offset,0,-3), Angle(0,0,0),"models/sprops/trans/train/slider_1.mdl",true)
+    fClamps:setNocollideAll(true)
+    coroutine.yield()    
+    
+--[[
+    rClamps = prop.create(center + Vector(-offset,0,-3), Angle(0,0,0),"models/sprops/trans/train/slider_1.mdl",true)
+    rClamps:setNocollideAll(true)
+    constraint.weld(fClamps,rClamps)
+    coroutine.yield()
+]]
+end
+
+local co = coroutine.create(spawnProps)
+
+hook.add("think", "holoSpawner", function()
+    if coroutine.status(co) ~= "dead" then
+        while prop.canSpawn() and coroutine.status(co) ~= "dead"  do
+            coroutine.resume(co)
+        end
+    else
+        hook.remove("think", "holoSpawner")
+        hook.add("think", "keepSeatUpright", run)
+    end
+
+end)
+
+
+function move(yaw, speed)
+    fClamps:applyForceCenter( fClamps:getRight() * speed - Vector(0,0, math.abs(speed) * 0.25) )
+    --rClamps:applyForceCenter( (rClamps:getForward() - rClamps:getUp() * 0.25) * speed)
+end
+
+
+local watchInKey = {
+    [IN_KEY.FORWARD] = true,
+    [IN_KEY.BACK] = true,
+    [IN_KEY.MOVERIGHT] = true,
+    [IN_KEY.MOVELEFT] = true,
+    [IN_KEY.JUMP] = true,
+    [IN_KEY.SPEED] = true,
+}
+
+activeInputs = {}
+local driver = nil
+
+speedStep = 1
+rollStep = 15
+speed = 0
+
+function run()
+
+    if fClamps:getDriver() and fClamps:getDriver():isValid() then
+    fClamps:setColor(Color(0,0,0,0))
+        driver = fClamps:getDriver()
+        local roll = 0
+        local boost = 1
+        --local speed = 0
+        
+        if activeInputs[IN_KEY.JUMP] and activeInputs[IN_KEY.JUMP] == 1 then
+            --platform:applyForceCenter(Vector(0,0,1) * 10000)
+        end
+        
+        if activeInputs[IN_KEY.SPEED] and activeInputs[IN_KEY.SPEED] > 0 then
+            boost = 1.5        
+        end
+        
+        if activeInputs[IN_KEY.FORWARD] and activeInputs[IN_KEY.FORWARD] > 0 then
+             speed = speed * 0.999 + speedStep * boost
+        end
+        if activeInputs[IN_KEY.BACK] and activeInputs[IN_KEY.BACK] > 0 then
+             speed = speed * 0.999 - speedStep * boost
+        end
+        if activeInputs[IN_KEY.MOVERIGHT] and activeInputs[IN_KEY.MOVERIGHT] > 0 then
+             roll = roll - rollStep
+        end
+        if activeInputs[IN_KEY.MOVELEFT] and activeInputs[IN_KEY.MOVELEFT] > 0 then
+             roll = roll + rollStep
+        end
+        --speed = speed * 0.95
+        
+        move(roll, speed)
+    
+        for key, _ in pairs(watchInKey) do
+            if activeInputs[key] and activeInputs[key] > 0 then
+                activeInputs[key] = activeInputs[key] + 1
+            else
+                activeInputs[key] = nil
+            end
+        end
+    else
+        fClamps:setColor(Color(255,255,255,255))
+        activeInputs = {}
+        driver = nil
+    end
+end
+
+
+hook.add("KeyPress", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] == nil or activeInputs[key] == 0 then
+            activeInputs[key] = 1
+        end
+    end
+end)
+hook.add("KeyRelease", "getKeyPress", function(ply, key)
+    if watchInKey[key] and driver and  ply == driver then
+        if activeInputs[key] and activeInputs[key] > 0 then
+            activeInputs[key] = 0
+        end
+    end
+end)
+
+
+
+
+
+
+

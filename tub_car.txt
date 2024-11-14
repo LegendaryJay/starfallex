@@ -1,4 +1,4 @@
---@name tiny vehicle
+--@name Tub car
 --@author Lil'Tugboat
 --@server
 
@@ -18,8 +18,10 @@ local wheelBL
 local wheelBR
 local platform
 local steering
-local headLight
-local wireLight
+local headLightR
+local headLightL
+local wireLightL
+local wireLightR
 
 local holos = {}
 
@@ -37,17 +39,21 @@ local function spawnProps()
     coroutine.yield()
 
     
-    platform = prop.create(center, Angle(0,0,0),"models/props_interiors/Furniture_Couch02a.mdl",true)
+    platform = prop.create(center, Angle(0,180,0),"models/props_interiors/BathTub01a.mdl",true)
     platform:setNocollideAll(true)
     platform:setMass(wheelMass * 1.1)
     
     halfSize = platform:obbSize() * 0.5
-    right = platform:getRight() * (halfSize[2] + 2 )
-    forward = platform:getForward() * halfSize[1] 
-    up = -platform:getUp() * (halfSize[3]  + 2)
+    right = -platform:getRight() * halfSize[2]
+    forward = -platform:getForward() * halfSize[1] *0.65
+    up = -platform:getUp() * (halfSize[3])
+    upRear = -platform:getUp() * (halfSize[3])
     coroutine.yield()
     
-    headLight = prop.createSent(center + forward + up * 0.5, Angle(0,0,0), "gmod_wire_lamp", true, {
+    headlightCenter = platform:obbCenterW() - platform:getForward() * halfSize[1] * 0.85  + up * 0.2
+    tailLightCenter = platform:obbCenterW() + platform:getForward() * halfSize[1] * 0.85  + up * 0.2
+    
+    headLightL = prop.createSent(headlightCenter - right * 0.55, Angle(0,0,0), "gmod_wire_lamp", true, {
         b = 255,
         Brightness = 8,
         Dist = 1024,
@@ -59,23 +65,42 @@ local function spawnProps()
         Texture = "effects/flashlight001",
     })
     
-    constraint.weld(headLight, platform)
-    wireLight = headLight:getWirelink()
+    constraint.weld(headLightL, platform)
+    headLightL:setNocollideAll(true)
+    wireLightL = headLightL:getWirelink()
+    coroutine.yield()    
+    
+    headLightR = prop.createSent(headlightCenter + right * 0.55, Angle(0,0,0), "gmod_wire_lamp", true, {
+        b = 255,
+        Brightness = 8,
+        Dist = 1024,
+        FOV = 90,
+        g = 255,
+        Model = "models/sprops/trans/lights/light_a2.mdl",
+        on = false,
+        r = 255,
+        Texture = "effects/flashlight001",
+    })
+    
+    constraint.weld(headLightR, platform)
+    headLightR:setNocollideAll(true)
+    wireLightR = headLightR:getWirelink()
     coroutine.yield()
     
     
-    seat = prop.createSeat(center + Vector(0,0,-7), Angle(0,-90,0),"models/nova/airboat_seat.mdl",true)
+    seat = prop.createSeat(platform:obbCenterW() + Vector(-20,0,-14), Angle(0,-90,35),"models/nova/airboat_seat.mdl",true)
     seat:setColor(Color(0,0,0,0))
     seat:setNocollideAll(true)
     
     constraint.weld(seat, platform)
     coroutine.yield()    
     
-    wheelMdl = "models/sprops/trans/miscwheels/thin_moto15.mdl"
+    wheelMdl = "models/sprops/trans/miscwheels/thick_moto25.mdl"
+    backWheelMdl = wheelMdl
     
     wheelFR = prop.create(platform:obbCenterW() + right + forward + up, Angle(), wheelMdl, true)
     wheelFR:enableSphere(true)
-    wheelFR:setBodygroup(1, 5)
+    wheelFR:setBodygroup(1, 2)
     wheelFR:setPhysMaterial("jeeptire")
     wheelFR:setMass(wheelMass)
     
@@ -85,7 +110,7 @@ local function spawnProps()
        
     wheelFL = prop.create(platform:obbCenterW() - right + forward + up, Angle(), wheelMdl, true)
     wheelFL:enableSphere(true)
-    wheelFL:setBodygroup(1, 5)
+    wheelFL:setBodygroup(1, 2)
     wheelFL:setPhysMaterial("jeeptire")
     wheelFL:setMass(wheelMass)
     constraint.nocollide(wheelFL, wheelFR)
@@ -105,9 +130,9 @@ local function spawnProps()
     --constraint.axis(steeringR, platform, 0, 0, Vector(),  Vector(), nil,nil, nil, true, Vector(0,0,1) )
     coroutine.yield()
         
-    wheelBL = prop.create(platform:obbCenterW() - right - forward + up, Angle(), wheelMdl, true)
+    wheelBL = prop.create(platform:obbCenterW() - right * 1.1 - forward * 0.5  + upRear, Angle(), backWheelMdl, true)
     wheelBL:enableSphere(true)
-    wheelBL:setBodygroup(1, 5)
+    wheelBL:setBodygroup(1, 2)
     wheelBL:setPhysMaterial("jeeptire")
     wheelBL:setMass(wheelMass)
     constraint.nocollide(wheelBL, wheelFR)
@@ -117,9 +142,9 @@ local function spawnProps()
     constraint.rope(ittRopeInd(), wheelBL, platform, nil, nil, Vector(), -forward)
     coroutine.yield()   
        
-    wheelBR = prop.create(platform:obbCenterW() + right - forward + up, Angle(), wheelMdl, true)
+    wheelBR = prop.create(platform:obbCenterW() + right * 1.1 - forward * 0.5  + upRear, Angle(), backWheelMdl, true)
     wheelBR:enableSphere(true)
-    wheelBR:setBodygroup(1, 5)
+    wheelBR:setBodygroup(1, 2)
     wheelBR:setPhysMaterial("jeeptire")
     wheelBR:setMass(wheelMass)
     constraint.nocollide(wheelBR, wheelFR)
@@ -128,7 +153,24 @@ local function spawnProps()
     
     constraint.rope(ittRopeInd(), wheelBR, platform, nil, nil, Vector(), -right)
     constraint.rope(ittRopeInd(), wheelBR, platform, nil, nil, Vector(), -forward)
-    coroutine.yield()   
+    coroutine.yield()     
+         
+    steeringWheel = prop.create(platform:obbCenterW() + Vector(-14,0,18) , Angle(20,180,0), "models/sprops/trans/stwheels/stwheel_2.mdl", true)
+    constraint.weld(steeringWheel, seat)      
+      
+          
+    tailLightL = prop.createSent(tailLightCenter, Angle(0,180,0), "gmod_wire_light", true, {
+         B = 255,
+         brightness = 2,
+         directional = false,
+         G = 255,
+         glow = false,
+         Model = "models/sprops/trans/lights/light_b1.mdl",
+         R = 255,
+         radiant = false,
+         size = 256,
+    })
+    constraint.weld(tailLightL, platform)
 
 
     local vecA = Vector(0,0,0)
@@ -204,7 +246,7 @@ activeInputs = {}
 local driver = nil
 
 speedStep = 1.5
-rollStep = 15
+rollStep = 20
 speed = 0
 
 function run()
@@ -224,7 +266,8 @@ function run()
         
         if activeInputs[IN_KEY.JUMP] and activeInputs[IN_KEY.JUMP] == 1 then
             lightOn = not lightOn
-            wireLight.On = lightOn and 1 or 0
+            wireLightL.On = lightOn and 1 or 0
+            wireLightR.On = lightOn and 1 or 0
         end
         
         if activeInputs[IN_KEY.SPEED] and activeInputs[IN_KEY.SPEED] > 0 then
